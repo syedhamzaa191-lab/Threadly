@@ -30,13 +30,23 @@ export async function GET(request: Request) {
             `${origin}/login?error=account_deactivated`
           )
         }
-      }
-
-      if (user.email) {
-        await supabase
-          .from('profiles')
-          .update({ email: user.email })
-          .eq('id', user.id)
+        // Update email if changed
+        if (user.email) {
+          await supabase
+            .from('profiles')
+            .update({ email: user.email })
+            .eq('id', user.id)
+        }
+      } else {
+        // New user — create profile
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          email: user.email || '',
+          full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || '',
+          avatar_url: user.user_metadata?.avatar_url || null,
+          status: 'active',
+          is_deleted: false,
+        })
       }
     }
 

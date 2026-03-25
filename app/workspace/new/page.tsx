@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
-export default function NewWorkspacePage() {
+function NewWorkspaceContent() {
   const searchParams = useSearchParams()
   const isJoin = searchParams.get('join') === 'true'
   const [tab, setTab] = useState<'create' | 'join'>(isJoin ? 'join' : 'create')
@@ -179,5 +179,30 @@ export default function NewWorkspacePage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function NewWorkspacePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center p-4">
+        <div className="w-full max-w-[400px]">
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <div className="w-12 h-12 bg-gray-900 rounded-2xl flex items-center justify-center">
+              <span className="text-white font-extrabold text-xl">T</span>
+            </div>
+            <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Threadly</h1>
+          </div>
+          <div className="bg-white rounded-3xl p-8 shadow-card animate-pulse">
+            <div className="h-10 bg-gray-200 rounded-xl mb-6"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+            <div className="h-12 bg-gray-200 rounded-xl mb-4"></div>
+            <div className="h-12 bg-gray-200 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+    }>
+      <NewWorkspaceContent />
+    </Suspense>
   )
 }

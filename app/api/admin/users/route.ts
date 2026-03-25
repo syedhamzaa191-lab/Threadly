@@ -90,8 +90,8 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: reactError.message }, { status: 500 })
       }
 
-      // Re-add to workspace
-      await supabase.from('workspace_members').insert({
+      // Re-add to workspace (use adminClient to bypass RLS)
+      await adminClient.from('workspace_members').insert({
         workspace_id,
         user_id: target_user_id,
         role: 'member',

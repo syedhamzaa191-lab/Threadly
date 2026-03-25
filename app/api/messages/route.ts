@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   if (parent_message_id) {
     const { data: parentMsg } = await supabase
       .from('messages')
-      .select('id, channel_id')
+      .select('id, channel_id, reply_count')
       .eq('id', parent_message_id)
       .single()
 
@@ -76,6 +76,15 @@ export async function POST(request: Request) {
     if (parentMsg.channel_id !== channel_id) {
       return NextResponse.json({ error: 'Parent message is in a different channel' }, { status: 400 })
     }
+
+    // Increment reply_count on parent message
+    await supabase.rpc('increment_reply_count', { msg_id: parent_message_id }).catch(() => {
+      // If RPC doesn't exist, update directly
+      return supabase
+        .from('messages')
+        .update({ reply_count: (parentMsg as any).reply_count ? (parentMsg as any).reply_count + 1 : 1 })
+        .eq('id', parent_message_id)
+    })
   }
 
   // Save message — Supabase Realtime will broadcast automatically
