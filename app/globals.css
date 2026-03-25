@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-white text-gray-900 antialiased;
+    @apply bg-[#f5f5f5] text-gray-900 antialiased;
   }
 }
 
@@ -13,13 +13,13 @@
     scrollbar-width: thin;
   }
   .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
+    width: 5px;
   }
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: rgba(155, 155, 155, 0.5);
+    background-color: rgba(155, 155, 155, 0.3);
     border-radius: 20px;
   }
 }

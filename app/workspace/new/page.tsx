@@ -1,32 +1,31 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { slugify } from '@/lib/utils'
 
 export default function NewWorkspacePage() {
+  const searchParams = useSearchParams()
+  const isJoin = searchParams.get('join') === 'true'
+  const [tab, setTab] = useState<'create' | 'join'>(isJoin ? 'join' : 'create')
   const [name, setName] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setError('You must be logged in')
-      setLoading(false)
-      return
-    }
+    if (!user) { router.push('/login'); return }
 
-    const slug = slugify(name) + '-' + Date.now().toString(36)
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
-    // Create workspace
     const { data: workspace, error: wsError } = await supabase
       .from('workspaces')
       .insert({ name, slug, owner_id: user.id })
@@ -39,78 +38,144 @@ export default function NewWorkspacePage() {
       return
     }
 
-    // Add creator as owner member
-    const { error: memberError } = await supabase
-      .from('workspace_members')
-      .insert({ workspace_id: workspace.id, user_id: user.id, role: 'owner' })
+    // Add owner as member
+    await supabase.from('workspace_members').insert({
+      workspace_id: workspace.id,
+      user_id: user.id,
+      role: 'owner',
+    })
 
-    if (memberError) {
-      setError(memberError.message)
+    // Create default #general channel
+    await supabase.from('channels').insert({
+      workspace_id: workspace.id,
+      name: 'general',
+      description: 'General discussion',
+      created_by: user.id,
+    })
+
+    router.push(`/workspace/${workspace.id}/channel`)
+  }
+
+  const handleJoin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.push('/login'); return }
+
+    const { data: invite, error: invError } = await supabase
+      .from('invites')
+      .select('*, workspaces(*)')
+      .eq('code', inviteCode.trim())
+      .gt('expires_at', new Date().toISOString())
+      .single()
+
+    if (invError || !invite) {
+      setError('Invalid or expired invite code')
       setLoading(false)
       return
     }
 
-    // Create #general channel
-    const { data: channel } = await supabase
-      .from('channels')
-      .insert({
-        workspace_id: workspace.id,
-        name: 'general',
-        description: 'General discussion',
-        created_by: user.id,
-      })
-      .select()
+    // Check if already a member
+    const { data: existing } = await supabase
+      .from('workspace_members')
+      .select('workspace_id')
+      .eq('workspace_id', invite.workspace_id)
+      .eq('user_id', user.id)
       .single()
 
-    if (channel) {
-      router.push(`/workspace/${workspace.id}/channel/${channel.id}`)
-    } else {
-      router.push(`/workspace/${workspace.id}`)
+    if (!existing) {
+      await supabase.from('workspace_members').insert({
+        workspace_id: invite.workspace_id,
+        user_id: user.id,
+        role: 'member',
+      })
     }
-    router.refresh()
+
+    router.push(`/workspace/${invite.workspace_id}/channel`)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-brand-700">Threadly</h1>
-          <p className="text-gray-500 mt-1">Create your first workspace</p>
+    <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center p-4">
+      <div className="w-full max-w-[400px]">
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <div className="w-12 h-12 bg-gray-900 rounded-2xl flex items-center justify-center">
+            <span className="text-white font-extrabold text-xl">T</span>
+          </div>
+          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Threadly</h1>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-8">
-          <h2 className="text-xl font-semibold mb-6">New Workspace</h2>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 text-red-600 text-sm p-3 rounded-md">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Workspace name
-              </label>
-              <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                placeholder="My Team"
-              />
-            </div>
-
+        <div className="bg-white rounded-3xl p-8 shadow-card">
+          {/* Tabs */}
+          <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
             <button
-              type="submit"
-              disabled={loading || !name.trim()}
-              className="w-full py-2 px-4 bg-brand-600 text-white rounded-md hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              onClick={() => setTab('create')}
+              className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${
+                tab === 'create' ? 'bg-gray-900 text-white' : 'text-gray-900'
+              }`}
             >
-              {loading ? 'Creating...' : 'Create Workspace'}
+              Create
             </button>
-          </form>
+            <button
+              onClick={() => setTab('join')}
+              className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${
+                tab === 'join' ? 'bg-gray-900 text-white' : 'text-gray-900'
+              }`}
+            >
+              Join
+            </button>
+          </div>
+
+          {tab === 'create' ? (
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-1.5">Workspace Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm text-gray-900 border border-gray-200 focus:outline-none focus:border-gray-400 transition-colors"
+                  placeholder="e.g. My Team"
+                  required
+                />
+              </div>
+              {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Creating...' : 'Create Workspace'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleJoin} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-1.5">Invite Code</label>
+                <input
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm text-gray-900 border border-gray-200 focus:outline-none focus:border-gray-400 transition-colors"
+                  placeholder="Paste your invite code"
+                  required
+                />
+              </div>
+              {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Joining...' : 'Join Workspace'}
+              </button>
+            </form>
+          )}
+
+          <Link href="/workspace" className="block text-sm font-bold text-gray-900 text-center mt-4 underline">
+            Back
+          </Link>
         </div>
       </div>
     </div>

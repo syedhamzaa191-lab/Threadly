@@ -1,78 +1,68 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
-import Sidebar from '@/components/layout/sidebar'
+'use client'
 
-export default async function WorkspaceLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode
-  params: { workspaceId: string }
-}) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+import { useParams, useRouter, usePathname } from 'next/navigation'
+import { useAuth } from '@/hooks/use-auth'
+import { useWorkspace } from '@/hooks/use-workspace'
+import { useChannels } from '@/hooks/use-channels'
+import { Sidebar } from '@/components/layout/sidebar'
 
-  if (!user) redirect('/login')
+export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
+  const params = useParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const workspaceId = params.workspaceId as string
 
-  // Fetch profile
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  // Extract channelId from pathname like /workspace/xxx/channel/yyy
+  const channelMatch = pathname.match(/\/channel\/([^/]+)/)
+  const activeChannelId = channelMatch ? channelMatch[1] : undefined
 
-  if (!profile) redirect('/login')
+  const { user, profile, loading: authLoading, signOut } = useAuth()
+  const { workspace, members, myRole, loading: wsLoading } = useWorkspace(workspaceId)
+  const { channels, createChannel } = useChannels(workspaceId)
 
-  // Verify membership
-  const { data: membership } = await supabase
-    .from('workspace_members')
-    .select('*')
-    .eq('workspace_id', params.workspaceId)
-    .eq('user_id', user.id)
-    .single()
+  if (authLoading || wsLoading) {
+    return (
+      <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 bg-gray-900 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <span className="text-white font-extrabold text-xl">T</span>
+          </div>
+          <p className="text-sm font-bold text-gray-900">Loading workspace...</p>
+        </div>
+      </div>
+    )
+  }
 
-  if (!membership) redirect('/')
+  if (!user) {
+    router.push('/login')
+    return null
+  }
 
-  // Fetch current workspace
-  const { data: workspace } = await supabase
-    .from('workspaces')
-    .select('*')
-    .eq('id', params.workspaceId)
-    .single()
-
-  if (!workspace) redirect('/')
-
-  // Fetch channels
-  const { data: channels } = await supabase
-    .from('channels')
-    .select('*')
-    .eq('workspace_id', params.workspaceId)
-    .order('created_at', { ascending: true })
-
-  // Fetch all user's workspaces
-  const { data: memberships } = await supabase
-    .from('workspace_members')
-    .select('workspace_id')
-    .eq('user_id', user.id)
-
-  const workspaceIds = memberships?.map((m) => m.workspace_id) || []
-
-  const { data: workspaces } = await supabase
-    .from('workspaces')
-    .select('*')
-    .in('id', workspaceIds)
+  const channelList = channels.map((ch) => ({
+    id: ch.id,
+    name: ch.name,
+    unread_count: 0,
+  }))
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[#f5f5f5]">
       <Sidebar
-        workspace={workspace}
-        channels={channels || []}
-        profile={profile}
-        workspaces={workspaces || []}
+        workspaceName={workspace?.name || 'Workspace'}
+        channels={channelList}
+        activeChannelId={activeChannelId}
+        userName={profile?.full_name || 'User'}
+        userAvatar={profile?.avatar_url}
+        userRole={myRole}
+        onChannelSelect={(channelId) =>
+          router.push(`/workspace/${workspaceId}/channel/${channelId}`)
+        }
+        onSignOut={signOut}
+        onCreateChannel={async (name: string) => {
+          if (user) await createChannel(name, user.id)
+        }}
+        memberCount={members.length}
       />
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {children}
-      </main>
+      {children}
     </div>
   )
 }
