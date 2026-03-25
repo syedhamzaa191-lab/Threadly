@@ -14,11 +14,9 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/login?error=auth_failed`)
     }
 
-    // Get authenticated user
     const { data: { user } } = await supabase.auth.getUser()
 
     if (user) {
-      // Check user status in profiles table
       const { data: profile } = await supabase
         .from('profiles')
         .select('status, is_deleted')
@@ -26,19 +24,14 @@ export async function GET(request: Request) {
         .single()
 
       if (profile) {
-        // Check 1: status must be active
-        // Check 2: must not be deleted
         if (profile.status !== 'active' || profile.is_deleted) {
-          // Reject login — sign out and redirect with error
           await supabase.auth.signOut()
           return NextResponse.redirect(
             `${origin}/login?error=account_deactivated`
           )
         }
       }
-      // If no profile yet (new user), the DB trigger will create one
 
-      // Update email in profile if not set
       if (user.email) {
         await supabase
           .from('profiles')
@@ -47,7 +40,6 @@ export async function GET(request: Request) {
       }
     }
 
-    // Redirect to invite page if coming from invite flow
     if (redirect) {
       return NextResponse.redirect(`${origin}${redirect}`)
     }

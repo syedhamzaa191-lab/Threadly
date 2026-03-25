@@ -38,8 +38,8 @@ export default function InvitePage() {
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      // Redirect to login, then come back
-      router.push(`/login?redirect=/invite/${token}`)
+      // Redirect to signup, then come back
+      router.push(`/signup?redirect=/invite/${token}`)
       return
     }
 
