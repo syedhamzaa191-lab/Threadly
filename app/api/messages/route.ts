@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // POST /api/messages — Send a message (all validation server-side)
 // 1. Verify user is authenticated
@@ -27,7 +28,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Account is deactivated' }, { status: 403 })
   }
 
-  const body = await request.json()
+  let body
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
   const { channel_id, content, parent_message_id } = body
 
   // Validate content
@@ -41,7 +47,8 @@ export async function POST(request: Request) {
   }
 
   // Verify user is member of the channel's workspace
-  const { data: channel } = await supabase
+  const adminClient = createAdminClient()
+  const { data: channel } = await adminClient
     .from('channels')
     .select('id, workspace_id')
     .eq('id', channel_id)
@@ -51,7 +58,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
   }
 
-  const { data: membership } = await supabase
+  const { data: membership } = await adminClient
     .from('workspace_members')
     .select('user_id')
     .eq('workspace_id', channel.workspace_id)
@@ -64,7 +71,7 @@ export async function POST(request: Request) {
 
   // If it's a thread reply, verify parent message exists and is in same channel
   if (parent_message_id) {
-    const { data: parentMsg } = await supabase
+    const { data: parentMsg } = await adminClient
       .from('messages')
       .select('id, channel_id, reply_count')
       .eq('id', parent_message_id)
@@ -78,17 +85,18 @@ export async function POST(request: Request) {
     }
 
     // Increment reply_count on parent message
-    await supabase.rpc('increment_reply_count', { msg_id: parent_message_id }).catch(() => {
-      // If RPC doesn't exist, update directly
-      return supabase
+    try {
+      await adminClient.rpc('increment_reply_count', { msg_id: parent_message_id })
+    } catch {
+      await adminClient
         .from('messages')
         .update({ reply_count: (parentMsg as any).reply_count ? (parentMsg as any).reply_count + 1 : 1 })
         .eq('id', parent_message_id)
-    })
+    }
   }
 
   // Save message — Supabase Realtime will broadcast automatically
-  const { data: message, error } = await supabase
+  const { data: message, error } = await adminClient
     .from('messages')
     .insert({
       channel_id,
@@ -96,7 +104,7 @@ export async function POST(request: Request) {
       content: content.trim(),
       parent_message_id: parent_message_id || null,
     })
-    .select('*, profiles:sender_id(id, full_name, avatar_url)')
+    .select('*')
     .single()
 
   if (error) {
@@ -109,6 +117,7 @@ export async function POST(request: Request) {
 // DELETE /api/messages — Delete own message
 export async function DELETE(request: Request) {
   const supabase = createClient()
+  const adminClient = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -122,8 +131,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Message id is required' }, { status: 400 })
   }
 
-  // Verify ownership
-  const { data: msg } = await supabase
+  const { data: msg } = await adminClient
     .from('messages')
     .select('sender_id')
     .eq('id', messageId)
@@ -137,7 +145,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'You can only delete your own messages' }, { status: 403 })
   }
 
-  const { error } = await supabase
+  const { error } = await adminClient
     .from('messages')
     .delete()
     .eq('id', messageId)

@@ -1,32 +1,52 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { useMessages } from '@/hooks/use-messages'
 import { useThread } from '@/hooks/use-thread'
-import { useChannels } from '@/hooks/use-channels'
-import { useWorkspace } from '@/hooks/use-workspace'
-import { ChatHeader } from '@/components/chat/chat-header'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { ThreadPanel } from '@/components/chat/thread-panel'
+import { Avatar } from '@/components/ui/avatar'
+import { createClient } from '@/lib/supabase/client'
 
-export default function ChannelPage() {
+export default function DmPage() {
   const params = useParams()
   const channelId = params.channelId as string
   const workspaceId = params.workspaceId as string
+  const supabase = createClient()
 
   const { user } = useAuth()
-  const { channels } = useChannels(workspaceId)
-  const { members, myRole } = useWorkspace(workspaceId)
   const { messages, loading, sendMessage } = useMessages(channelId)
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null)
+  const [otherUser, setOtherUser] = useState<{ full_name: string; avatar_url: string | null } | null>(null)
 
   const threadParent = messages.find((m) => m.id === threadMessageId)
   const { replies, sendReply } = useThread(threadMessageId, channelId)
 
-  const channel = channels.find((c) => c.id === channelId)
+  // Fetch other user info
+  useEffect(() => {
+    async function loadOtherUser() {
+      if (!user) return
+      const { data: channel } = await supabase
+        .from('channels')
+        .select('dm_user_ids')
+        .eq('id', channelId)
+        .single()
+
+      if (channel?.dm_user_ids) {
+        const otherId = (channel.dm_user_ids as string[]).find((id: string) => id !== user.id) || (channel.dm_user_ids as string[])[0]
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', otherId)
+          .single()
+        setOtherUser(profile)
+      }
+    }
+    loadOtherUser()
+  }, [channelId, user])
 
   const formattedMessages = messages.map((m) => ({
     id: m.id,
@@ -58,11 +78,17 @@ export default function ChannelPage() {
   return (
     <>
       <main className="flex-1 flex flex-col min-w-0 bg-white">
-        <ChatHeader
-          channelName={channel?.name || 'channel'}
-          memberCount={members.length}
-          isAdmin={myRole === 'owner' || myRole === 'admin'}
-        />
+        {/* DM Header */}
+        <div className="px-6 py-4 flex items-center gap-3 bg-white border-b border-gray-100">
+          <Avatar name={otherUser?.full_name || '?'} src={otherUser?.avatar_url} size="md" online />
+          <div>
+            <h2 className="font-bold text-lg text-gray-900 tracking-tight">
+              {otherUser?.full_name || 'Loading...'}
+            </h2>
+            <p className="text-xs text-gray-500 font-medium">Direct Message</p>
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-sm font-bold text-gray-900">Loading messages...</p>
@@ -74,7 +100,7 @@ export default function ChannelPage() {
           />
         )}
         <MessageInput
-          placeholder={`Message #${channel?.name || 'channel'}`}
+          placeholder={`Message ${otherUser?.full_name || '...'}`}
           onSend={async (content) => {
             await sendMessage(content)
           }}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 interface Workspace {
@@ -25,7 +25,11 @@ export function useWorkspace(workspaceId: string) {
   const [members, setMembers] = useState<Member[]>([])
   const [myRole, setMyRole] = useState<string>('member')
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const [reloadKey, setReloadKey] = useState(0)
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+
+  const reload = () => setReloadKey((k) => k + 1)
 
   useEffect(() => {
     if (!workspaceId) return
@@ -33,19 +37,32 @@ export function useWorkspace(workspaceId: string) {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
 
-      const { data: ws } = await supabase
-        .from('workspaces')
-        .select('*')
-        .eq('id', workspaceId)
-        .single()
+      // Parallel fetch workspace + members
+      const [wsResult, memsResult] = await Promise.all([
+        supabase.from('workspaces').select('*').eq('id', workspaceId).single(),
+        supabase.from('workspace_members').select('user_id, role').eq('workspace_id', workspaceId),
+      ])
 
-      const { data: mems } = await supabase
-        .from('workspace_members')
-        .select('user_id, role, profiles:user_id(id, full_name, avatar_url)')
-        .eq('workspace_id', workspaceId)
+      const ws = wsResult.data
+      const mems = memsResult.data
+
+      // Fetch profiles in parallel if members exist
+      let combined: Member[] = []
+      if (mems && mems.length > 0) {
+        const userIds = mems.map((m: any) => m.user_id)
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', userIds)
+
+        combined = mems.map((m: any) => ({
+          ...m,
+          profiles: profiles?.find((p: any) => p.id === m.user_id) || null,
+        }))
+      }
 
       setWorkspace(ws)
-      setMembers((mems as any) || [])
+      setMembers(combined)
 
       if (user && mems) {
         const me = mems.find((m: any) => m.user_id === user.id)
@@ -56,17 +73,7 @@ export function useWorkspace(workspaceId: string) {
     }
 
     load()
-  }, [workspaceId])
+  }, [workspaceId, reloadKey, supabase])
 
-  const createInvite = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('invites')
-      .insert({ workspace_id: workspaceId, created_by: userId })
-      .select()
-      .single()
-
-    return { data, error }
-  }
-
-  return { workspace, members, myRole, loading, createInvite }
+  return { workspace, members, myRole, loading, reload }
 }

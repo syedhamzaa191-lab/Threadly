@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(request: Request) {
   const { searchParams, origin: requestOrigin } = new URL(request.url)
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || requestOrigin
+  const origin = requestOrigin
   const code = searchParams.get('code')
   const redirect = searchParams.get('redirect')
 
   if (code) {
     const supabase = createClient()
+    const adminClient = createAdminClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (error) {
@@ -18,29 +20,51 @@ export async function GET(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (user) {
-      const { data: profile } = await supabase
+      // Check if user already has a profile (existing user)
+      const { data: profile } = await adminClient
         .from('profiles')
         .select('status, is_deleted')
         .eq('id', user.id)
         .single()
 
       if (profile) {
+        // Existing user - check if deactivated
         if (profile.status !== 'active' || profile.is_deleted) {
           await supabase.auth.signOut()
-          return NextResponse.redirect(
-            `${origin}/login?error=account_deactivated`
-          )
+          return NextResponse.redirect(`${origin}/login?error=account_deactivated`)
         }
         // Update email if changed
         if (user.email) {
-          await supabase
+          await adminClient
             .from('profiles')
             .update({ email: user.email })
             .eq('id', user.id)
         }
       } else {
-        // New user — create profile
-        await supabase.from('profiles').upsert({
+        // New user - check if they have a pending invite OR are workspace owner
+        const { data: invite } = await adminClient
+          .from('invites')
+          .select('id, workspace_id')
+          .eq('email', user.email || '')
+          .is('accepted_at', null)
+          .limit(1)
+          .maybeSingle()
+
+        const { data: isOwner } = await adminClient
+          .from('workspaces')
+          .select('id')
+          .eq('owner_id', user.id)
+          .limit(1)
+          .maybeSingle()
+
+        if (!invite && !isOwner) {
+          // Not invited and not owner - block access
+          await supabase.auth.signOut()
+          return NextResponse.redirect(`${origin}/login?error=not_invited`)
+        }
+
+        // Create profile for new invited user
+        await adminClient.from('profiles').upsert({
           id: user.id,
           email: user.email || '',
           full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || '',
@@ -48,6 +72,24 @@ export async function GET(request: Request) {
           status: 'active',
           is_deleted: false,
         })
+
+        // If they have an invite, auto-add them to the workspace
+        if (invite) {
+          // Add to workspace as member
+          await adminClient.from('workspace_members').upsert({
+            workspace_id: invite.workspace_id,
+            user_id: user.id,
+            role: 'member',
+          })
+
+          // Mark invite as accepted
+          await adminClient
+            .from('invites')
+            .update({ accepted_at: new Date().toISOString() })
+            .eq('id', invite.id)
+
+          return NextResponse.redirect(`${origin}/workspace/${invite.workspace_id}/channel`)
+        }
       }
     }
 

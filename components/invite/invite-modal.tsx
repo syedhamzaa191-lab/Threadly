@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { IconButton } from '@/components/ui/icon-button'
 
 interface InviteModalProps {
+  workspaceId: string
   onClose: () => void
 }
 
@@ -13,7 +14,7 @@ interface SentInvite {
   expires_at: string
 }
 
-export function InviteModal({ onClose }: InviteModalProps) {
+export function InviteModal({ workspaceId, onClose }: InviteModalProps) {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -25,18 +26,25 @@ export function InviteModal({ onClose }: InviteModalProps) {
     setError('')
     setLoading(true)
 
-    // Generate invite locally (will use API when Supabase is connected)
-    const token = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    const res = await fetch('/api/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspace_id: workspaceId, email: email.trim() }),
+    })
+
+    const data = await res.json()
+    setLoading(false)
+
+    if (!res.ok) {
+      setError(data.error)
+      return
+    }
 
     setSentInvites((prev) => [
-      { email: email.trim(), token, expires_at: expires },
+      { email: email.trim(), token: data.invite.token, expires_at: data.invite.expires_at },
       ...prev,
     ])
     setEmail('')
-    setLoading(false)
   }
 
   const copyLink = (token: string) => {
@@ -92,9 +100,9 @@ export function InviteModal({ onClose }: InviteModalProps) {
             <p className="text-[11px] font-bold text-gray-900 uppercase tracking-widest mb-2">How it works</p>
             <div className="space-y-1.5">
               <Step num={1} text="Enter the email of the person you want to invite" />
-              <Step num={2} text="A secure invite link is generated (expires in 24h)" />
-              <Step num={3} text="Share the link — they click it to join" />
-              <Step num={4} text="Link becomes invalid after use" />
+              <Step num={2} text="A secure invite link is generated (expires in 7 days)" />
+              <Step num={3} text="Share the link — they click it and sign in with Google" />
+              <Step num={4} text="They are automatically added to the workspace" />
             </div>
           </div>
         </div>
@@ -114,7 +122,7 @@ export function InviteModal({ onClose }: InviteModalProps) {
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-bold text-gray-900 truncate">{inv.email}</p>
                     <p className="text-[11px] text-gray-900">
-                      Expires {new Date(inv.expires_at).toLocaleString()}
+                      Expires {new Date(inv.expires_at).toLocaleDateString()}
                     </p>
                   </div>
                   <button

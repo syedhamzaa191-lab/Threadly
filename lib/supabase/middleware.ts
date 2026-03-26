@@ -25,28 +25,13 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Refresh session
+  // Refresh session only - no DB queries
   const { data: { user } } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
   const isPublicPage = pathname === '/' || pathname.startsWith('/login') ||
     pathname.startsWith('/signup') || pathname.startsWith('/invite') ||
     pathname.startsWith('/auth')
-
-  // If user is logged in, verify they are not deactivated
-  if (user && !isPublicPage) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('status, is_deleted')
-      .eq('id', user.id)
-      .single()
-
-    if (profile && (profile.status !== 'active' || profile.is_deleted)) {
-      // Deactivated user — sign out and redirect
-      await supabase.auth.signOut()
-      return NextResponse.redirect(new URL('/login?error=account_deactivated', request.url))
-    }
-  }
 
   // Protect workspace routes — must be logged in
   if (!user && pathname.startsWith('/workspace')) {

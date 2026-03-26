@@ -12,10 +12,19 @@ interface Channel {
   unread_count?: number
 }
 
+interface DmItem {
+  id: string
+  name: string
+  avatar: string | null
+  lastMessage?: string
+  unread_count?: number
+}
+
 interface SidebarProps {
   workspaceName: string
   channels: Channel[]
   activeChannelId?: string
+  activeDmId?: string
   userName: string
   userAvatar?: string | null
   userRole?: string
@@ -25,13 +34,17 @@ interface SidebarProps {
   onCreateChannel?: (name: string) => void
   onInviteClick?: () => void
   onProfileClick?: () => void
+  onMembersClick?: () => void
   memberCount?: number
+  dmConversations?: DmItem[]
+  onDmSelect?: (channelId: string) => void
 }
 
 export function Sidebar({
   workspaceName,
   channels,
   activeChannelId,
+  activeDmId,
   userName,
   userAvatar,
   userRole,
@@ -40,7 +53,10 @@ export function Sidebar({
   onCreateChannel,
   onInviteClick,
   onProfileClick,
+  onMembersClick,
   memberCount,
+  dmConversations,
+  onDmSelect,
 }: SidebarProps) {
   const [search, setSearch] = useState('')
   const [showNewChannel, setShowNewChannel] = useState(false)
@@ -78,7 +94,7 @@ export function Sidebar({
       {/* Search */}
       <div className="px-5 pb-4">
         <SearchInput
-          placeholder="Search channels..."
+          placeholder="Search..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -87,8 +103,7 @@ export function Sidebar({
       {/* Nav Items */}
       <nav className="px-3 pb-3 flex flex-col gap-0.5">
         <NavItem icon={<HomeIcon />} label="Home" />
-        <NavItem icon={<MessageIcon />} label="Messages" />
-        <NavItem icon={<PeopleIcon />} label={`Members${memberCount ? ` (${memberCount})` : ''}`} />
+        <NavItem icon={<PeopleIcon />} label={`Members${memberCount ? ` (${memberCount})` : ''}`} onClick={onMembersClick} />
         {onInviteClick && (
           <button
             onClick={onInviteClick}
@@ -102,8 +117,9 @@ export function Sidebar({
 
       <div className="h-px bg-gray-100 mx-5" />
 
-      {/* Channels */}
+      {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto scrollbar-thin px-3 py-4">
+        {/* Channels */}
         <div className="flex items-center justify-between px-3 mb-3">
           <span className="text-[11px] font-bold text-gray-900 uppercase tracking-widest">
             Channels
@@ -158,31 +174,78 @@ export function Sidebar({
             </button>
           ))}
         </div>
+
+        {/* Direct Messages */}
+        {dmConversations && dmConversations.length > 0 && (
+          <>
+            <div className="flex items-center px-3 mb-3 mt-6">
+              <span className="text-[11px] font-bold text-gray-900 uppercase tracking-widest">
+                Direct Messages
+              </span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {dmConversations.map((dm) => (
+                <button
+                  key={dm.id}
+                  onClick={() => onDmSelect?.(dm.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150 ${
+                    activeDmId === dm.id
+                      ? 'bg-gray-900 text-white font-semibold shadow-sm'
+                      : 'text-gray-900 hover:bg-gray-50 font-medium'
+                  }`}
+                >
+                  <Avatar name={dm.name} src={dm.avatar} size="sm" />
+                  <div className="flex-1 text-left min-w-0">
+                    <span className="truncate block">{dm.name}</span>
+                    {dm.lastMessage && (
+                      <span className={`text-[11px] truncate block ${activeDmId === dm.id ? 'text-white/60' : 'text-gray-400'}`}>
+                        {dm.lastMessage.slice(0, 30)}{dm.lastMessage.length > 30 ? '...' : ''}
+                      </span>
+                    )}
+                  </div>
+                  {dm.unread_count ? (
+                    <Badge count={dm.unread_count} variant={activeDmId === dm.id ? 'muted' : 'primary'} />
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* User Profile */}
       <div className="p-4 border-t border-gray-100">
-        <button
-          onClick={onProfileClick}
-          className="w-full flex items-center gap-3 p-2 rounded-2xl hover:bg-gray-50 transition-colors text-left"
-        >
-          <Avatar name={userName} src={userAvatar} size="md" online />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-gray-900 truncate">{userName}</p>
-            <p className="text-[11px] text-gray-900 font-medium truncate">{userRole || 'Member'}</p>
-          </div>
-          <svg className="w-4 h-4 text-gray-900 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onProfileClick}
+            className="flex-1 flex items-center gap-3 p-2 rounded-2xl hover:bg-gray-50 transition-colors text-left"
+          >
+            <Avatar name={userName} src={userAvatar} size="md" online />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-gray-900 truncate">{userName}</p>
+              <p className="text-[11px] text-gray-900 font-medium truncate">{userRole || 'Member'}</p>
+            </div>
+          </button>
+          {onSignOut && (
+            <button
+              onClick={onSignOut}
+              title="Logout"
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+            >
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
     </aside>
   )
 }
 
-function NavItem({ icon, label }: { icon: React.ReactNode; label: string }) {
+function NavItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
   return (
-    <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-gray-900 hover:bg-gray-50 transition-all duration-150">
+    <button onClick={onClick} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-gray-900 hover:bg-gray-50 transition-all duration-150">
       {icon}
       <span>{label}</span>
     </button>
@@ -193,14 +256,6 @@ function HomeIcon() {
   return (
     <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z" />
-    </svg>
-  )
-}
-
-function MessageIcon() {
-  return (
-    <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
     </svg>
   )
 }

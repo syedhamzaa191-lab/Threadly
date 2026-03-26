@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 interface Channel {
@@ -14,7 +14,8 @@ interface Channel {
 export function useChannels(workspaceId: string) {
   const [channels, setChannels] = useState<Channel[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   useEffect(() => {
     if (!workspaceId) return
@@ -24,6 +25,7 @@ export function useChannels(workspaceId: string) {
         .from('channels')
         .select('*')
         .eq('workspace_id', workspaceId)
+        .eq('is_dm', false)
         .order('created_at', { ascending: true })
 
       setChannels(data || [])

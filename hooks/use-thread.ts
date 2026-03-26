@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 interface Reply {
@@ -14,27 +14,28 @@ interface Reply {
     id: string
     full_name: string
     avatar_url: string | null
-  }
+  } | null
 }
 
 export function useThread(threadId: string | null, channelId: string) {
   const [replies, setReplies] = useState<Reply[]>([])
   const [loading, setLoading] = useState(false)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
-  const fetchReplies = useCallback(async () => {
-    if (!threadId) return
+  const enrichWithProfiles = useCallback(async (msgs: any[]) => {
+    if (msgs.length === 0) return []
+    const senderIds = Array.from(new Set(msgs.map((m) => m.sender_id)))
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .in('id', senderIds)
 
-    setLoading(true)
-    const { data } = await supabase
-      .from('messages')
-      .select('*, profiles:sender_id(id, full_name, avatar_url)')
-      .eq('parent_message_id', threadId)
-      .order('created_at', { ascending: true })
-
-    setReplies(data || [])
-    setLoading(false)
-  }, [threadId])
+    return msgs.map((m) => ({
+      ...m,
+      profiles: profiles?.find((p: any) => p.id === m.sender_id) || null,
+    }))
+  }, [supabase])
 
   useEffect(() => {
     if (!threadId) {
@@ -42,9 +43,21 @@ export function useThread(threadId: string | null, channelId: string) {
       return
     }
 
+    setLoading(true)
+    async function fetchReplies() {
+      const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('parent_message_id', threadId)
+        .order('created_at', { ascending: true })
+
+      const enriched = await enrichWithProfiles(data || [])
+      setReplies(enriched)
+      setLoading(false)
+    }
+
     fetchReplies()
 
-    // Real-time for thread replies
     const subscription = supabase
       .channel(`thread:${threadId}`)
       .on(
@@ -56,16 +69,11 @@ export function useThread(threadId: string | null, channelId: string) {
           filter: `parent_message_id=eq.${threadId}`,
         },
         async (payload) => {
-          const { data } = await supabase
-            .from('messages')
-            .select('*, profiles:sender_id(id, full_name, avatar_url)')
-            .eq('id', payload.new.id)
-            .single()
-
-          if (data) {
+          const enriched = await enrichWithProfiles([payload.new])
+          if (enriched[0]) {
             setReplies((prev) => {
-              if (prev.some((r) => r.id === data.id)) return prev
-              return [...prev, data]
+              if (prev.some((r) => r.id === enriched[0].id)) return prev
+              return [...prev, enriched[0]]
             })
           }
         }
@@ -75,9 +83,8 @@ export function useThread(threadId: string | null, channelId: string) {
     return () => {
       supabase.removeChannel(subscription)
     }
-  }, [threadId, fetchReplies])
+  }, [threadId, enrichWithProfiles, supabase])
 
-  // Send via API route (all validation server-side)
   const sendReply = async (content: string) => {
     if (!threadId) return { error: new Error('No thread selected') }
 

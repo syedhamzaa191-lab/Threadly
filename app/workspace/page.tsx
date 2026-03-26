@@ -13,6 +13,7 @@ interface WorkspaceMembership {
 
 export default function WorkspaceListPage() {
   const [loading, setLoading] = useState(true)
+  const [canCreate, setCanCreate] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -31,6 +32,12 @@ export default function WorkspaceListPage() {
         router.push(`/workspace/${ws.id}/channel`)
         return
       }
+
+      // Check if any workspace exists — if so, this user should join, not create
+      const { count } = await supabase
+        .from('workspaces')
+        .select('id', { count: 'exact', head: true })
+      setCanCreate(!count || count === 0)
 
       setLoading(false)
     }
@@ -65,15 +72,21 @@ export default function WorkspaceListPage() {
           <p className="text-sm text-gray-900 mb-6">Create or join a workspace to begin</p>
 
           <div className="space-y-3">
-            <Link
-              href="/workspace/new"
-              className="block w-full py-3 bg-gray-900 text-white rounded-xl font-bold text-sm text-center hover:bg-gray-800 transition-colors"
-            >
-              Create a Workspace
-            </Link>
+            {canCreate && (
+              <Link
+                href="/workspace/new"
+                className="block w-full py-3 bg-gray-900 text-white rounded-xl font-bold text-sm text-center hover:bg-gray-800 transition-colors"
+              >
+                Create a Workspace
+              </Link>
+            )}
             <Link
               href="/workspace/new?join=true"
-              className="block w-full py-3 bg-gray-100 text-gray-900 rounded-xl font-bold text-sm text-center hover:bg-gray-200 transition-colors"
+              className={`block w-full py-3 rounded-xl font-bold text-sm text-center transition-colors ${
+                canCreate
+                  ? 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  : 'bg-gray-900 text-white hover:bg-gray-800'
+              }`}
             >
               Join with Invite Code
             </Link>

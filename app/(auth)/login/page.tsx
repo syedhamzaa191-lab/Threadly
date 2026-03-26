@@ -4,19 +4,29 @@ import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+const ERROR_MESSAGES: Record<string, string> = {
+  account_deactivated: 'Your account has been deactivated. Contact your admin.',
+  not_invited: 'You are not invited to this workspace. Ask your admin for an invite.',
+  auth_failed: 'Authentication failed. Please try again.',
+  no_code: 'Something went wrong. Please try again.',
+}
+
 function LoginContent() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect')
+  const urlError = searchParams.get('error')
   const supabase = createClient()
+
+  const displayError = error || (urlError ? ERROR_MESSAGES[urlError] || urlError : '')
 
   const handleGoogleLogin = async () => {
     setError('')
     setLoading(true)
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+    const siteUrl = window.location.origin
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -35,8 +45,10 @@ function LoginContent() {
       <h2 className="text-xl font-bold text-gray-900 mb-1">Welcome to Threadly</h2>
       <p className="text-sm text-gray-900 mb-8">Sign in to continue</p>
 
-      {error && (
-        <p className="text-sm text-red-600 font-medium mb-4">{error}</p>
+      {displayError && (
+        <div className="p-3 bg-red-50 rounded-xl mb-4">
+          <p className="text-sm text-red-600 font-medium">{displayError}</p>
+        </div>
       )}
 
       <button
@@ -62,16 +74,26 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="bg-white rounded-3xl p-8 shadow-card">
-        <div className="animate-pulse">
-          <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
-          <div className="h-12 bg-gray-200 rounded-xl"></div>
+    <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center p-4">
+      <div className="w-full max-w-[400px]">
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <div className="w-12 h-12 bg-gray-900 rounded-2xl flex items-center justify-center">
+            <span className="text-white font-extrabold text-xl">T</span>
+          </div>
+          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Threadly</h1>
         </div>
+        <Suspense fallback={
+          <div className="bg-white rounded-3xl p-8 shadow-card">
+            <div className="animate-pulse">
+              <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
+              <div className="h-12 bg-gray-200 rounded-xl"></div>
+            </div>
+          </div>
+        }>
+          <LoginContent />
+        </Suspense>
       </div>
-    }>
-      <LoginContent />
-    </Suspense>
+    </div>
   )
 }

@@ -2,11 +2,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-// POST /api/invite/accept — User accepts invite after creating account
-// 1. Verify user is authenticated
-// 2. Validate token (not used, not expired)
-// 3. Add user to workspace
-// 4. Mark token as used
 export async function POST(request: Request) {
   const supabase = createClient()
   const adminClient = createAdminClient()
@@ -21,7 +16,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Token is required' }, { status: 400 })
   }
 
-  // Fetch invite with admin client (to bypass RLS for validation)
   const { data: invite, error: invError } = await adminClient
     .from('invites')
     .select('*')
@@ -32,23 +26,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid invite token' }, { status: 404 })
   }
 
-  // Check 1: Token must not be used
-  if (invite.is_used) {
+  if (invite.accepted_at) {
     return NextResponse.json({ error: 'This invite has already been used' }, { status: 410 })
   }
 
-  // Check 2: Token must not be expired
   if (new Date(invite.expires_at) < new Date()) {
     return NextResponse.json({ error: 'This invite has expired' }, { status: 410 })
   }
 
-  // Check 3: Email must match (security - invite is for specific email)
   if (invite.email !== user.email) {
     return NextResponse.json({ error: 'This invite was sent to a different email' }, { status: 403 })
   }
 
-  // Check if already a member
-  const { data: existing } = await supabase
+  // Create profile if not exists
+  await adminClient.from('profiles').upsert({
+    id: user.id,
+    email: user.email || '',
+    full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || '',
+    avatar_url: user.user_metadata?.avatar_url || null,
+    status: 'active',
+    is_deleted: false,
+  })
+
+  // Add to workspace if not already member
+  const { data: existing } = await adminClient
     .from('workspace_members')
     .select('user_id')
     .eq('workspace_id', invite.workspace_id)
@@ -56,8 +57,7 @@ export async function POST(request: Request) {
     .single()
 
   if (!existing) {
-    // Add user to workspace
-    const { error: joinError } = await supabase
+    const { error: joinError } = await adminClient
       .from('workspace_members')
       .insert({
         workspace_id: invite.workspace_id,
@@ -70,14 +70,10 @@ export async function POST(request: Request) {
     }
   }
 
-  // Mark token as used (admin client to bypass RLS)
+  // Mark invite as accepted
   await adminClient
     .from('invites')
-    .update({
-      is_used: true,
-      used_by: user.id,
-      used_at: new Date().toISOString(),
-    })
+    .update({ accepted_at: new Date().toISOString() })
     .eq('id', invite.id)
 
   return NextResponse.json({
