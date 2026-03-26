@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { IconButton } from '@/components/ui/icon-button'
 
 interface InviteModalProps {
@@ -8,18 +8,34 @@ interface InviteModalProps {
   onClose: () => void
 }
 
-interface SentInvite {
+interface InviteItem {
+  id: string
   email: string
   token: string
   expires_at: string
 }
 
+const LIVE_URL = 'https://threadly1-sigma.vercel.app'
+
 export function InviteModal({ workspaceId, onClose }: InviteModalProps) {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [sentInvites, setSentInvites] = useState<SentInvite[]>([])
+  const [pendingInvites, setPendingInvites] = useState<InviteItem[]>([])
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const fetchPendingInvites = async () => {
+    const res = await fetch(`/api/invite?workspace_id=${workspaceId}`)
+    if (res.ok) {
+      const data = await res.json()
+      setPendingInvites(data.invites)
+    }
+  }
+
+  useEffect(() => {
+    fetchPendingInvites()
+  }, [workspaceId])
 
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,23 +56,35 @@ export function InviteModal({ workspaceId, onClose }: InviteModalProps) {
       return
     }
 
-    setSentInvites((prev) => [
-      { email: email.trim(), token: data.invite.token, expires_at: data.invite.expires_at },
-      ...prev,
-    ])
     setEmail('')
+    fetchPendingInvites()
   }
 
-  const copyLink = (token: string) => {
-    const link = `${window.location.origin}/invite/${token}`
+  const handleDelete = async (inviteId: string) => {
+    setDeletingId(inviteId)
+    const res = await fetch('/api/invite', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invite_id: inviteId, workspace_id: workspaceId }),
+    })
+
+    if (res.ok) {
+      setPendingInvites((prev) => prev.filter((inv) => inv.id !== inviteId))
+    }
+    setDeletingId(null)
+  }
+
+  const copyLink = (token: string, type: 'local' | 'live') => {
+    const base = type === 'live' ? LIVE_URL : window.location.origin
+    const link = `${base}/invite/${token}`
     navigator.clipboard.writeText(link)
-    setCopiedToken(token)
+    setCopiedToken(`${token}-${type}`)
     setTimeout(() => setCopiedToken(null), 2000)
   }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl w-full max-w-[440px] shadow-card-hover overflow-hidden">
+      <div className="bg-white rounded-3xl w-full max-w-[440px] shadow-card-hover overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 pb-4">
           <div>
@@ -107,13 +135,15 @@ export function InviteModal({ workspaceId, onClose }: InviteModalProps) {
           </div>
         </div>
 
-        {/* Sent Invites */}
-        {sentInvites.length > 0 && (
-          <div className="px-6 pb-6">
-            <p className="text-[11px] font-bold text-gray-900 uppercase tracking-widest mb-3">Sent Invites</p>
+        {/* Pending Invites */}
+        {pendingInvites.length > 0 && (
+          <div className="px-6 pb-6 overflow-y-auto">
+            <p className="text-[11px] font-bold text-gray-900 uppercase tracking-widest mb-3">
+              Pending Invites ({pendingInvites.length})
+            </p>
             <div className="space-y-2 max-h-[200px] overflow-y-auto scrollbar-thin">
-              {sentInvites.map((inv) => (
-                <div key={inv.token} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+              {pendingInvites.map((inv) => (
+                <div key={inv.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                   <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center shrink-0">
                     <svg className="w-4 h-4 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -121,20 +151,39 @@ export function InviteModal({ workspaceId, onClose }: InviteModalProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-bold text-gray-900 truncate">{inv.email}</p>
-                    <p className="text-[11px] text-gray-900">
+                    <p className="text-[11px] text-gray-500">
                       Expires {new Date(inv.expires_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <button
-                    onClick={() => copyLink(inv.token)}
-                    className={`px-3 py-1.5 rounded-lg text-[12px] font-bold transition-colors shrink-0 ${
-                      copiedToken === inv.token
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
-                    }`}
-                  >
-                    {copiedToken === inv.token ? 'Copied!' : 'Copy Link'}
-                  </button>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button
+                      onClick={() => copyLink(inv.token, 'local')}
+                      className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                        copiedToken === `${inv.token}-local`
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+                      }`}
+                    >
+                      {copiedToken === `${inv.token}-local` ? 'Copied!' : 'Local'}
+                    </button>
+                    <button
+                      onClick={() => copyLink(inv.token, 'live')}
+                      className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                        copiedToken === `${inv.token}-live`
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                      }`}
+                    >
+                      {copiedToken === `${inv.token}-live` ? 'Copied!' : 'Live'}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(inv.id)}
+                      disabled={deletingId === inv.id}
+                      className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
+                    >
+                      {deletingId === inv.id ? '...' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

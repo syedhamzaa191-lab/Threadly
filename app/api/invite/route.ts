@@ -3,6 +3,84 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import crypto from 'crypto'
 
+export async function GET(request: Request) {
+  const supabase = createClient()
+  const adminClient = createAdminClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { searchParams } = new URL(request.url)
+  const workspace_id = searchParams.get('workspace_id')
+
+  if (!workspace_id) {
+    return NextResponse.json({ error: 'workspace_id is required' }, { status: 400 })
+  }
+
+  const { data: membership } = await adminClient
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspace_id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!membership || !['owner', 'admin'].includes(membership.role)) {
+    return NextResponse.json({ error: 'Only admins can view invites' }, { status: 403 })
+  }
+
+  const { data: invites } = await adminClient
+    .from('invites')
+    .select('id, email, token, expires_at, created_at')
+    .eq('workspace_id', workspace_id)
+    .is('accepted_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+
+  return NextResponse.json({ invites: invites || [] })
+}
+
+export async function DELETE(request: Request) {
+  const supabase = createClient()
+  const adminClient = createAdminClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const body = await request.json()
+  const { invite_id, workspace_id } = body
+
+  if (!invite_id || !workspace_id) {
+    return NextResponse.json({ error: 'invite_id and workspace_id are required' }, { status: 400 })
+  }
+
+  const { data: membership } = await adminClient
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspace_id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!membership || !['owner', 'admin'].includes(membership.role)) {
+    return NextResponse.json({ error: 'Only admins can delete invites' }, { status: 403 })
+  }
+
+  const { error } = await adminClient
+    .from('invites')
+    .delete()
+    .eq('id', invite_id)
+    .eq('workspace_id', workspace_id)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true })
+}
+
 export async function POST(request: Request) {
   const supabase = createClient()
   const adminClient = createAdminClient()
