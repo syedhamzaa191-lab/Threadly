@@ -48,7 +48,7 @@ export function useDirectMessages(workspaceId: string, currentUserId: string | u
 
       // Parallel fetch: profiles + all last messages at once
       const [profilesResult, messagesResult] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, avatar_url').in('id', otherUserIds),
+        supabase.from('profiles').select('id, full_name, avatar_url, is_deleted').in('id', otherUserIds),
         supabase.from('messages').select('channel_id, content, created_at')
           .in('channel_id', channelIds)
           .is('parent_message_id', null)
@@ -66,22 +66,28 @@ export function useDirectMessages(workspaceId: string, currentUserId: string | u
         }
       }
 
-      const convos: DmConversation[] = dmChannels.map((ch: any) => {
-        const otherId = (ch.dm_user_ids as string[]).find((id: string) => id !== currentUserId) || (ch.dm_user_ids as string[])[0]
-        const profile = profiles.find((p: any) => p.id === otherId)
-        const lastMsg = lastMessageMap[ch.id]
+      const convos: DmConversation[] = dmChannels
+        .map((ch: any) => {
+          const otherId = (ch.dm_user_ids as string[]).find((id: string) => id !== currentUserId) || (ch.dm_user_ids as string[])[0]
+          const profile = profiles.find((p: any) => p.id === otherId)
 
-        return {
-          id: ch.id,
-          otherUser: {
-            id: otherId,
-            full_name: profile?.full_name || 'Unknown',
-            avatar_url: profile?.avatar_url || null,
-          },
-          lastMessage: lastMsg?.content,
-          lastMessageAt: lastMsg?.created_at,
-        }
-      })
+          // Skip deactivated users
+          if (profile?.is_deleted) return null
+
+          const lastMsg = lastMessageMap[ch.id]
+
+          return {
+            id: ch.id,
+            otherUser: {
+              id: otherId,
+              full_name: profile?.full_name || 'Unknown',
+              avatar_url: profile?.avatar_url || null,
+            },
+            lastMessage: lastMsg?.content,
+            lastMessageAt: lastMsg?.created_at,
+          }
+        })
+        .filter((c): c is DmConversation => c !== null)
 
       convos.sort((a, b) => {
         if (!a.lastMessageAt) return 1

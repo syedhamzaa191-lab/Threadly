@@ -139,6 +139,13 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
         onDmSelect={(channelId) =>
           router.push(`/workspace/${workspaceId}/dm/${channelId}`)
         }
+        onStartDm={startDm}
+        members={members.map((m) => ({
+          id: m.user_id,
+          full_name: m.profiles?.full_name || 'Unknown',
+          avatar_url: m.profiles?.avatar_url || null,
+        }))}
+        currentUserId={user.id}
       />
       {children}
 

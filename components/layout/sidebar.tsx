@@ -20,6 +20,12 @@ interface DmItem {
   unread_count?: number
 }
 
+interface MemberItem {
+  id: string
+  full_name: string
+  avatar_url: string | null
+}
+
 interface SidebarProps {
   workspaceName: string
   channels: Channel[]
@@ -38,6 +44,9 @@ interface SidebarProps {
   memberCount?: number
   dmConversations?: DmItem[]
   onDmSelect?: (channelId: string) => void
+  onStartDm?: (userId: string) => void
+  members?: MemberItem[]
+  currentUserId?: string
 }
 
 export function Sidebar({
@@ -57,10 +66,15 @@ export function Sidebar({
   memberCount,
   dmConversations,
   onDmSelect,
+  onStartDm,
+  members,
+  currentUserId,
 }: SidebarProps) {
   const [search, setSearch] = useState('')
   const [showNewChannel, setShowNewChannel] = useState(false)
   const [newChannelName, setNewChannelName] = useState('')
+  const [showNewDm, setShowNewDm] = useState(false)
+  const [dmSearch, setDmSearch] = useState('')
 
   const filteredChannels = channels.filter((ch) =>
     ch.name.toLowerCase().includes(search.toLowerCase())
@@ -176,15 +190,55 @@ export function Sidebar({
         </div>
 
         {/* Direct Messages */}
-        {dmConversations && dmConversations.length > 0 && (
+        {members && members.length > 0 && (
           <>
-            <div className="flex items-center px-3 mb-3 mt-6">
+            <div className="flex items-center justify-between px-3 mb-3 mt-6">
               <span className="text-[11px] font-bold text-gray-900 uppercase tracking-widest">
                 Direct Messages
               </span>
+              {onStartDm && (
+                <IconButton size="sm" onClick={() => setShowNewDm(!showNewDm)}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </IconButton>
+              )}
             </div>
+
+            {showNewDm && members && onStartDm && (
+              <div className="px-3 mb-3">
+                <input
+                  type="text"
+                  value={dmSearch}
+                  onChange={(e) => setDmSearch(e.target.value)}
+                  placeholder="Search members..."
+                  className="w-full px-3 py-2 bg-gray-50 rounded-lg text-[13px] text-gray-900 border border-gray-200 focus:outline-none focus:border-gray-400 mb-2"
+                  autoFocus
+                />
+                <div className="max-h-[160px] overflow-y-auto scrollbar-thin space-y-0.5">
+                  {members
+                    .filter((m) => m.id !== currentUserId)
+                    .filter((m) => m.full_name.toLowerCase().includes(dmSearch.toLowerCase()))
+                    .map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => {
+                          onStartDm(m.id)
+                          setShowNewDm(false)
+                          setDmSearch('')
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <Avatar name={m.full_name} src={m.avatar_url} size="sm" />
+                        <span className="text-[13px] font-medium text-gray-900 truncate">{m.full_name}</span>
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
             <div className="flex flex-col gap-0.5">
-              {dmConversations.map((dm) => (
+              {/* Existing DM conversations first */}
+              {dmConversations?.map((dm) => (
                 <button
                   key={dm.id}
                   onClick={() => onDmSelect?.(dm.id)}
@@ -208,6 +262,23 @@ export function Sidebar({
                   ) : null}
                 </button>
               ))}
+              {/* Fill remaining slots with members who don't have DM yet (up to 8 total) */}
+              {onStartDm && members
+                .filter((m) => m.id !== currentUserId)
+                .filter((m) => !dmConversations?.some((dm) => dm.name === m.full_name))
+                .slice(0, Math.max(0, 8 - (dmConversations?.length || 0)))
+                .map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => onStartDm(m.id)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150 text-gray-900 hover:bg-gray-50 font-medium"
+                  >
+                    <Avatar name={m.full_name} src={m.avatar_url} size="sm" />
+                    <div className="flex-1 text-left min-w-0">
+                      <span className="truncate block">{m.full_name}</span>
+                    </div>
+                  </button>
+                ))}
             </div>
           </>
         )}

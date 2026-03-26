@@ -38,5 +38,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
+  // Logged-in users on home page → go to workspace
+  if (user && pathname === '/') {
+    return NextResponse.redirect(new URL('/workspace', request.url))
+  }
+
   return supabaseResponse
 }
