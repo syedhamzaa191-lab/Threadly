@@ -78,5 +78,12 @@ export function useChannels(workspaceId: string) {
     return { data, error }
   }
 
-  return { channels, loading, createChannel }
+  const deleteChannel = async (channelId: string) => {
+    const res = await fetch(`/api/channels?id=${channelId}`, { method: 'DELETE' })
+    const data = await res.json()
+    if (!res.ok) return { error: new Error(data.error) }
+    return { error: null }
+  }
+
+  return { channels, loading, createChannel, deleteChannel }
 }

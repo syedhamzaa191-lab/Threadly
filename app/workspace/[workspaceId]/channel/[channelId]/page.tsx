@@ -11,6 +11,7 @@ import { ChatHeader } from '@/components/chat/chat-header'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { ThreadPanel } from '@/components/chat/thread-panel'
+import { ReactionGroup } from '@/components/chat/reaction-display'
 
 export default function ChannelPage() {
   const params = useParams()
@@ -20,7 +21,7 @@ export default function ChannelPage() {
   const { user } = useAuth()
   const { channels } = useChannels(workspaceId)
   const { members, myRole } = useWorkspace(workspaceId)
-  const { messages, loading, sendMessage } = useMessages(channelId)
+  const { messages, loading, sendMessage, deleteMessage, toggleReaction } = useMessages(channelId)
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null)
 
   const threadParent = messages.find((m) => m.id === threadMessageId)
@@ -28,13 +29,34 @@ export default function ChannelPage() {
 
   const channel = channels.find((c) => c.id === channelId)
 
+  function buildReactionGroups(reactions: { emoji: string; user_id: string }[]): ReactionGroup[] {
+    const map = new Map<string, { count: number; userIds: string[] }>()
+    for (const r of reactions) {
+      const existing = map.get(r.emoji)
+      if (existing) {
+        existing.count++
+        existing.userIds.push(r.user_id)
+      } else {
+        map.set(r.emoji, { count: 1, userIds: [r.user_id] })
+      }
+    }
+    return Array.from(map.entries()).map(([emoji, data]) => ({
+      emoji,
+      count: data.count,
+      userIds: data.userIds,
+      reacted: user ? data.userIds.includes(user.id) : false,
+    }))
+  }
+
   const formattedMessages = messages.map((m) => ({
     id: m.id,
     content: m.content,
+    sender_id: m.sender_id,
     sender_name: m.profiles?.full_name || 'Unknown',
     sender_avatar: m.profiles?.avatar_url || null,
     created_at: m.created_at,
     thread_count: m.reply_count,
+    reactions: buildReactionGroups(m.reactions || []),
   }))
 
   const formattedReplies = replies.map((r) => ({
@@ -57,7 +79,7 @@ export default function ChannelPage() {
 
   return (
     <>
-      <main className="flex-1 flex flex-col min-w-0 bg-white">
+      <main className="flex-1 flex flex-col min-w-0 bg-[#1e1a2b] page-enter">
         <ChatHeader
           channelName={channel?.name || 'channel'}
           memberCount={members.length}
@@ -65,12 +87,22 @@ export default function ChannelPage() {
         />
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-sm font-bold text-gray-900">Loading messages...</p>
+            <div className="text-center animate-fade-in">
+              <div className="w-8 h-8 border-2 border-white/10 border-t-purple-400 rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-sm font-medium text-white/30">Loading messages...</p>
+            </div>
           </div>
         ) : (
           <MessageList
             messages={formattedMessages}
+            currentUserId={user?.id}
             onThreadClick={setThreadMessageId}
+            onReact={async (messageId, emoji) => {
+              await toggleReaction(messageId, emoji)
+            }}
+            onDelete={async (messageId) => {
+              await deleteMessage(messageId)
+            }}
           />
         )}
         <MessageInput

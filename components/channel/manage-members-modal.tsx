@@ -118,7 +118,7 @@ export function ManageMembersModal({
                     {/* Add to channel button */}
                     <button
                       onClick={() => setAssigningUserId(isAssigning ? null : m.id)}
-                      className="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-gray-900 text-white hover:bg-gray-800 transition-colors shrink-0"
+                      className="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-gradient-to-r from-violet-600 to-purple-600 text-white hover:opacity-90 transition-colors shrink-0"
                     >
                       {isAssigning ? 'Cancel' : 'Add'}
                     </button>
@@ -141,7 +141,7 @@ export function ManageMembersModal({
                                 onAddToChannel(m.id, ch.id)
                                 setAssigningUserId(null)
                               }}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-xl text-[12px] font-bold text-gray-900 hover:bg-gray-900 hover:text-white hover:border-gray-900 transition-all"
+                              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-xl text-[12px] font-bold text-gray-900 hover:bg-gradient-to-r from-violet-600 to-purple-600 hover:text-white hover:border-[#1a1025] transition-all"
                             >
                               <span className="text-[11px] font-normal">#</span>
                               {ch.name}

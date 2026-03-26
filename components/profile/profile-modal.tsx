@@ -68,12 +68,12 @@ export function ProfileModal({ profile, onClose, onSave }: ProfileModalProps) {
 
       {/* Slide-in Panel from right */}
       <div
-        className={`absolute right-0 top-0 h-full w-full max-w-[420px] bg-white shadow-xl flex flex-col transition-transform duration-300 ease-out ${
+        className={`absolute right-0 top-0 h-full w-full max-w-[420px] bg-[#1e1a2b] shadow-xl flex flex-col transition-transform duration-300 ease-out ${
           visible ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         {/* Cover */}
-        <div className="relative h-36 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 shrink-0">
+        <div className="relative h-36 bg-gradient-to-br from-[#0f0a1a] via-[#2a1050] to-[#4c1d95] shrink-0">
           {/* Pattern overlay */}
           <div className="absolute inset-0 opacity-10" style={{
             backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
@@ -93,7 +93,7 @@ export function ProfileModal({ profile, onClose, onSave }: ProfileModalProps) {
             {!editing ? (
               <button
                 onClick={() => setEditing(true)}
-                className="px-4 py-1.5 rounded-lg text-[12px] font-bold bg-white text-gray-900 hover:bg-gray-100 transition-colors"
+                className="px-4 py-1.5 rounded-lg text-[12px] font-bold bg-white text-white/80 hover:bg-white/[0.06] transition-colors"
               >
                 Edit Profile
               </button>
@@ -111,7 +111,7 @@ export function ProfileModal({ profile, onClose, onSave }: ProfileModalProps) {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="px-4 py-1.5 rounded-lg text-[12px] font-bold bg-white text-gray-900 hover:bg-gray-100 transition-colors"
+                  className="px-4 py-1.5 rounded-lg text-[12px] font-bold bg-white text-white/80 hover:bg-white/[0.06] transition-colors"
                 >
                   Save
                 </button>
@@ -122,12 +122,12 @@ export function ProfileModal({ profile, onClose, onSave }: ProfileModalProps) {
           {/* Avatar */}
           <div className="absolute -bottom-14 left-6">
             <div className="relative">
-              <div className="w-28 h-28 rounded-3xl border-4 border-white overflow-hidden bg-white shadow-soft">
+              <div className="w-28 h-28 rounded-3xl border-4 border-[#1e1a2b] overflow-hidden bg-[#252133] shadow-soft">
                 {previewAvatar ? (
                   <img src={previewAvatar} alt={data.name} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                    <span className="text-3xl font-extrabold text-gray-400">
+                  <div className="w-full h-full bg-white/[0.06] flex items-center justify-center">
+                    <span className="text-3xl font-extrabold text-white/40">
                       {data.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                     </span>
                   </div>
@@ -136,7 +136,7 @@ export function ProfileModal({ profile, onClose, onSave }: ProfileModalProps) {
               {editing && (
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute -bottom-1 -right-1 w-9 h-9 rounded-xl bg-gray-900 text-white flex items-center justify-center hover:bg-gray-800 transition-colors shadow-md"
+                  className="absolute -bottom-1 -right-1 w-9 h-9 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white flex items-center justify-center hover:opacity-90 transition-all shadow-glow"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -161,19 +161,19 @@ export function ProfileModal({ profile, onClose, onSave }: ProfileModalProps) {
             {/* Name & Role & Status */}
             {editing ? (
               <div className="mb-6">
-                <label className="block text-[11px] font-bold text-gray-900 uppercase tracking-widest mb-1.5">Full Name</label>
+                <label className="block text-[11px] font-bold text-white/80 uppercase tracking-widest mb-1.5">Full Name</label>
                 <input
                   type="text"
                   value={data.name}
                   onChange={(e) => setData((prev) => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-4 py-3 bg-gray-50 rounded-xl text-[15px] text-gray-900 font-bold border border-gray-200 focus:outline-none focus:border-gray-400 transition-colors"
+                  className="w-full px-4 py-3 bg-white/[0.04] rounded-xl text-[15px] text-white/80 font-bold border border-white/[0.08] focus:outline-none focus:border-purple-500/40 transition-colors"
                 />
               </div>
             ) : (
               <div className="mb-6">
-                <h2 className="text-[22px] font-extrabold text-gray-900 tracking-tight">{data.name}</h2>
+                <h2 className="text-[22px] font-extrabold text-white tracking-tight">{data.name}</h2>
                 <div className="flex items-center gap-2.5 mt-1.5">
-                  <span className="px-2.5 py-0.5 bg-gray-900 text-white rounded-lg text-[11px] font-bold uppercase tracking-wide">
+                  <span className="px-2.5 py-0.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg text-[11px] font-bold uppercase tracking-wide shadow-sm">
                     {data.role}
                   </span>
                   <span className="flex items-center gap-1.5 text-[12px] text-emerald-600 font-bold">
@@ -187,10 +187,10 @@ export function ProfileModal({ profile, onClose, onSave }: ProfileModalProps) {
             {/* Bio Section */}
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-2.5">
-                <svg className="w-4 h-4 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16M4 12h16M4 18h7" />
                 </svg>
-                <span className="text-[11px] font-bold text-gray-900 uppercase tracking-widest">About</span>
+                <span className="text-[11px] font-bold text-white/80 uppercase tracking-widest">About</span>
               </div>
               {editing ? (
                 <textarea
@@ -198,11 +198,11 @@ export function ProfileModal({ profile, onClose, onSave }: ProfileModalProps) {
                   onChange={(e) => setData((prev) => ({ ...prev, bio: e.target.value }))}
                   placeholder="Write something about yourself — your role, expertise, what you're working on..."
                   rows={4}
-                  className="w-full px-4 py-3 bg-gray-50 rounded-xl text-[13px] text-gray-900 border border-gray-200 focus:outline-none focus:border-gray-400 transition-colors resize-none leading-relaxed"
+                  className="w-full px-4 py-3 bg-white/[0.04] rounded-xl text-[13px] text-white/80 border border-white/[0.08] focus:outline-none focus:border-purple-500/40 transition-colors resize-none leading-relaxed"
                 />
               ) : (
-                <div className="bg-gray-50 rounded-2xl p-4">
-                  <p className="text-[13px] text-gray-900 leading-relaxed whitespace-pre-wrap">
+                <div className="bg-white/[0.04] rounded-2xl p-4">
+                  <p className="text-[13px] text-white/80 leading-relaxed whitespace-pre-wrap">
                     {data.bio || 'No bio added yet. Click "Edit Profile" to tell people about yourself.'}
                   </p>
                 </div>
@@ -210,15 +210,15 @@ export function ProfileModal({ profile, onClose, onSave }: ProfileModalProps) {
             </div>
 
             {/* Divider */}
-            <div className="h-px bg-gray-100 mb-6" />
+            <div className="h-px bg-white/[0.08] mb-6" />
 
             {/* Contact Info */}
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <svg className="w-4 h-4 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className="text-[11px] font-bold text-gray-900 uppercase tracking-widest">Contact Info</span>
+                <span className="text-[11px] font-bold text-white/80 uppercase tracking-widest">Contact Info</span>
               </div>
               <div className="space-y-2">
                 <InfoField icon={<MailIcon />} label="Email" value={data.email} editing={false} />
@@ -236,10 +236,10 @@ export function ProfileModal({ profile, onClose, onSave }: ProfileModalProps) {
             {/* Work Info */}
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <svg className="w-4 h-4 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                <span className="text-[11px] font-bold text-gray-900 uppercase tracking-widest">Work</span>
+                <span className="text-[11px] font-bold text-white/80 uppercase tracking-widest">Work</span>
               </div>
               <div className="space-y-2">
                 <InfoField
@@ -262,15 +262,15 @@ export function ProfileModal({ profile, onClose, onSave }: ProfileModalProps) {
             </div>
 
             {/* Divider */}
-            <div className="h-px bg-gray-100 mb-6" />
+            <div className="h-px bg-white/[0.08] mb-6" />
 
             {/* Activity / Stats */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <svg className="w-4 h-4 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
-                <span className="text-[11px] font-bold text-gray-900 uppercase tracking-widest">Activity</span>
+                <span className="text-[11px] font-bold text-white/80 uppercase tracking-widest">Activity</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <StatCard label="Joined" value={joinedDate} />
@@ -287,9 +287,9 @@ export function ProfileModal({ profile, onClose, onSave }: ProfileModalProps) {
 
 function StatCard({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="bg-gray-50 rounded-xl p-3 text-center">
-      <p className="text-[10px] font-bold text-gray-900 uppercase tracking-widest mb-1">{label}</p>
-      <p className={`text-[12px] font-bold truncate ${highlight ? 'text-emerald-600' : 'text-gray-900'}`}>
+    <div className="bg-white/[0.03] rounded-xl p-3 text-center border border-white/[0.06]">
+      <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">{label}</p>
+      <p className={`text-[12px] font-bold truncate ${highlight ? 'text-emerald-600' : 'text-white/80'}`}>
         {value}
       </p>
     </div>
@@ -312,22 +312,22 @@ function InfoField({
   onChange?: (v: string) => void
 }) {
   return (
-    <div className="flex items-center gap-3 p-3.5 bg-gray-50 rounded-xl">
-      <div className="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center shrink-0">
+    <div className="flex items-center gap-3 p-3.5 bg-white/[0.04] rounded-xl">
+      <div className="w-9 h-9 rounded-xl bg-white border border-white/[0.08] flex items-center justify-center shrink-0">
         {icon}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-bold text-gray-900 uppercase tracking-widest">{label}</p>
+        <p className="text-[10px] font-bold text-white/80 uppercase tracking-widest">{label}</p>
         {editing && onChange ? (
           <input
             type="text"
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className="w-full bg-transparent text-[13px] text-gray-900 font-medium focus:outline-none mt-0.5"
+            className="w-full bg-transparent text-[13px] text-white/80 font-medium focus:outline-none mt-0.5"
           />
         ) : (
-          <p className="text-[13px] text-gray-900 font-medium truncate mt-0.5">
+          <p className="text-[13px] text-white/80 font-medium truncate mt-0.5">
             {value || 'Not set'}
           </p>
         )}
@@ -338,7 +338,7 @@ function InfoField({
 
 function MailIcon() {
   return (
-    <svg className="w-4 h-4 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
     </svg>
   )
@@ -346,7 +346,7 @@ function MailIcon() {
 
 function PhoneIcon() {
   return (
-    <svg className="w-4 h-4 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
     </svg>
   )
@@ -354,7 +354,7 @@ function PhoneIcon() {
 
 function LocationIcon() {
   return (
-    <svg className="w-4 h-4 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
@@ -363,7 +363,7 @@ function LocationIcon() {
 
 function DepartmentIcon() {
   return (
-    <svg className="w-4 h-4 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
     </svg>
   )

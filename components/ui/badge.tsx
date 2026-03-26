@@ -9,8 +9,8 @@ export function Badge({ count, variant = 'primary' }: BadgeProps) {
   if (count <= 0) return null
 
   const variantClasses = {
-    primary: 'bg-red-500 text-white',
-    muted: 'bg-gray-100 text-gray-900',
+    primary: 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-sm',
+    muted: 'bg-white/20 text-white/90',
   }
 
   return (

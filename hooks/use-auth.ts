@@ -29,6 +29,27 @@ export function useAuth() {
             .select('id, full_name, avatar_url')
             .eq('id', user.id)
             .single()
+
+          // If profile has no avatar but Google metadata does, sync it
+          const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+          if (data && !data.avatar_url && googleAvatar) {
+            await supabase
+              .from('profiles')
+              .update({ avatar_url: googleAvatar })
+              .eq('id', user.id)
+            data.avatar_url = googleAvatar
+          }
+
+          // If profile has no full_name but Google metadata does, sync it
+          const googleName = user.user_metadata?.full_name || user.user_metadata?.name || null
+          if (data && !data.full_name && googleName) {
+            await supabase
+              .from('profiles')
+              .update({ full_name: googleName })
+              .eq('id', user.id)
+            data.full_name = googleName
+          }
+
           setProfile(data)
         }
       } catch (err) {

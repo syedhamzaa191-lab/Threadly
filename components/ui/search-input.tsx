@@ -10,7 +10,7 @@ export function SearchInput({ className = '', ...props }: SearchInputProps) {
   return (
     <div className={`relative ${className}`}>
       <svg
-        className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-900"
+        className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -24,7 +24,7 @@ export function SearchInput({ className = '', ...props }: SearchInputProps) {
       </svg>
       <input
         type="text"
-        className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-2xl text-sm text-gray-900 placeholder:text-gray-400 border-0 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all"
+        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-100 focus:border-violet-200 transition-all duration-200"
         {...props}
       />
     </div>

@@ -83,13 +83,13 @@ export function InviteModal({ workspaceId, onClose }: InviteModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl w-full max-w-[440px] shadow-card-hover overflow-hidden max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-3xl w-full max-w-[440px] shadow-premium-hover overflow-hidden max-h-[90vh] flex flex-col animate-scale-in border border-gray-100/50">
         {/* Header */}
         <div className="flex items-center justify-between p-6 pb-4">
           <div>
             <h2 className="text-lg font-bold text-gray-900 tracking-tight">Invite Members</h2>
-            <p className="text-[13px] text-gray-900 mt-0.5">Send invite links to add team members</p>
+            <p className="text-[13px] text-gray-400 mt-0.5">Send invite links to add team members</p>
           </div>
           <IconButton size="sm" onClick={onClose}>
             <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -107,12 +107,12 @@ export function InviteModal({ workspaceId, onClose }: InviteModalProps) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email@example.com"
               required
-              className="flex-1 px-4 py-3 bg-gray-50 rounded-xl text-sm text-gray-900 border border-gray-200 focus:outline-none focus:border-gray-400 transition-colors"
+              className="flex-1 px-4 py-3 bg-gray-50 rounded-xl text-sm text-gray-900 border border-gray-100 focus:outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100 transition-all duration-200"
             />
             <button
               type="submit"
               disabled={loading || !email.trim()}
-              className="px-5 py-3 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors disabled:opacity-50 shrink-0"
+              className="px-5 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all shadow-glow disabled:opacity-50 shrink-0"
             >
               {loading ? 'Sending...' : 'Send'}
             </button>
@@ -197,7 +197,7 @@ export function InviteModal({ workspaceId, onClose }: InviteModalProps) {
 function Step({ num, text }: { num: number; text: string }) {
   return (
     <div className="flex items-start gap-2.5">
-      <span className="w-5 h-5 bg-gray-900 text-white rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+      <span className="w-5 h-5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 shadow-sm">
         {num}
       </span>
       <p className="text-[12px] text-gray-900 leading-relaxed">{text}</p>

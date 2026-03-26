@@ -33,13 +33,18 @@ export async function GET(request: Request) {
           await supabase.auth.signOut()
           return NextResponse.redirect(`${origin}/login?error=account_deactivated`)
         }
-        // Update email if changed
-        if (user.email) {
-          await adminClient
-            .from('profiles')
-            .update({ email: user.email })
-            .eq('id', user.id)
+        // Update email, name, and avatar on every login (syncs Google profile changes)
+        const updates: Record<string, string> = { email: user.email || '' }
+        if (user.user_metadata?.full_name || user.user_metadata?.name) {
+          updates.full_name = user.user_metadata.full_name || user.user_metadata.name
         }
+        if (user.user_metadata?.avatar_url) {
+          updates.avatar_url = user.user_metadata.avatar_url
+        }
+        await adminClient
+          .from('profiles')
+          .update(updates)
+          .eq('id', user.id)
       } else {
         // New user - check if they have a pending invite OR are workspace owner
         const { data: invite } = await adminClient

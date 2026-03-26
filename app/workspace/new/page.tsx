@@ -97,30 +97,36 @@ function NewWorkspaceContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center p-4">
-      <div className="w-full max-w-[400px]">
+    <div className="min-h-screen bg-[#0a0612] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-30%] left-[-20%] w-[500px] h-[500px] bg-violet-600/15 rounded-full blur-[100px]" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[80px]" />
+      </div>
+
+      <div className="relative w-full max-w-[400px] animate-fade-in">
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-12 h-12 bg-gray-900 rounded-2xl flex items-center justify-center">
+          <div className="w-12 h-12 bg-gradient-to-r from-violet-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-glow-lg">
             <span className="text-white font-extrabold text-xl">T</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Threadly</h1>
+          <h1 className="text-2xl font-extrabold text-white tracking-tight">Threadly</h1>
         </div>
 
-        <div className="bg-white rounded-3xl p-8 shadow-card">
+        <div className="bg-white rounded-3xl p-8 shadow-premium border border-gray-100/50">
           {/* Tabs */}
-          <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
+          <div className="flex bg-gray-50 rounded-xl p-1 mb-6">
             <button
               onClick={() => setTab('create')}
-              className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${
-                tab === 'create' ? 'bg-gray-900 text-white' : 'text-gray-900'
+              className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${
+                tab === 'create' ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-glow' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               Create
             </button>
             <button
               onClick={() => setTab('join')}
-              className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${
-                tab === 'join' ? 'bg-gray-900 text-white' : 'text-gray-900'
+              className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${
+                tab === 'join' ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-glow' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               Join
@@ -135,7 +141,7 @@ function NewWorkspaceContent() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm text-gray-900 border border-gray-200 focus:outline-none focus:border-gray-400 transition-colors"
+                  className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm text-gray-900 border border-gray-100 focus:outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100 transition-all duration-200"
                   placeholder="e.g. My Team"
                   required
                 />
@@ -144,7 +150,7 @@ function NewWorkspaceContent() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors disabled:opacity-50"
+                className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all shadow-glow disabled:opacity-50"
               >
                 {loading ? 'Creating...' : 'Create Workspace'}
               </button>
@@ -157,7 +163,7 @@ function NewWorkspaceContent() {
                   type="text"
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm text-gray-900 border border-gray-200 focus:outline-none focus:border-gray-400 transition-colors"
+                  className="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm text-gray-900 border border-gray-100 focus:outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100 transition-all duration-200"
                   placeholder="Paste your invite code"
                   required
                 />
@@ -166,14 +172,14 @@ function NewWorkspaceContent() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors disabled:opacity-50"
+                className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all shadow-glow disabled:opacity-50"
               >
                 {loading ? 'Joining...' : 'Join Workspace'}
               </button>
             </form>
           )}
 
-          <Link href="/workspace" className="block text-sm font-bold text-gray-900 text-center mt-4 underline">
+          <Link href="/workspace" className="block text-sm font-bold text-violet-600 text-center mt-4 hover:text-violet-700 transition-colors">
             Back
           </Link>
         </div>
@@ -185,19 +191,22 @@ function NewWorkspaceContent() {
 export default function NewWorkspacePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center p-4">
-        <div className="w-full max-w-[400px]">
+      <div className="min-h-screen bg-[#0a0612] flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-[-30%] left-[-20%] w-[500px] h-[500px] bg-violet-600/15 rounded-full blur-[100px]" />
+        </div>
+        <div className="relative w-full max-w-[400px]">
           <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-gray-900 rounded-2xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-r from-violet-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-glow-lg">
               <span className="text-white font-extrabold text-xl">T</span>
             </div>
-            <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Threadly</h1>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">Threadly</h1>
           </div>
-          <div className="bg-white rounded-3xl p-8 shadow-card animate-pulse">
-            <div className="h-10 bg-gray-200 rounded-xl mb-6"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-            <div className="h-12 bg-gray-200 rounded-xl mb-4"></div>
-            <div className="h-12 bg-gray-200 rounded-xl"></div>
+          <div className="bg-white rounded-3xl p-8 shadow-premium animate-pulse">
+            <div className="h-10 bg-gray-100 rounded-xl mb-6"></div>
+            <div className="h-4 bg-gray-100 rounded w-1/3 mb-2"></div>
+            <div className="h-12 bg-gray-100 rounded-xl mb-4"></div>
+            <div className="h-12 bg-gray-100 rounded-xl"></div>
           </div>
         </div>
       </div>

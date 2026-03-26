@@ -41,12 +41,12 @@ function LoginContent() {
   }
 
   return (
-    <div className="bg-white rounded-3xl p-8 shadow-card">
+    <div className="bg-white rounded-3xl p-8 shadow-premium border border-gray-100/50">
       <h2 className="text-xl font-bold text-gray-900 mb-1">Welcome to Threadly</h2>
-      <p className="text-sm text-gray-900 mb-8">Sign in to continue</p>
+      <p className="text-sm text-gray-400 mb-8">Sign in to continue to your workspace</p>
 
       {displayError && (
-        <div className="p-3 bg-red-50 rounded-xl mb-4">
+        <div className="p-3.5 bg-red-50 rounded-xl mb-5 border border-red-100">
           <p className="text-sm text-red-600 font-medium">{displayError}</p>
         </div>
       )}
@@ -54,7 +54,7 @@ function LoginContent() {
       <button
         onClick={handleGoogleLogin}
         disabled={loading}
-        className="w-full py-3 bg-white text-gray-900 rounded-xl font-bold text-sm border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-3"
+        className="w-full py-3.5 bg-white text-gray-900 rounded-xl font-bold text-sm border border-gray-200 hover:border-gray-300 hover:bg-gray-50 hover:shadow-soft transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-3"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -65,7 +65,7 @@ function LoginContent() {
         {loading ? 'Redirecting...' : 'Continue with Google'}
       </button>
 
-      <p className="text-xs text-gray-500 text-center mt-6">
+      <p className="text-[11px] text-gray-400 text-center mt-6">
         By signing in, you agree to our Terms of Service
       </p>
     </div>
@@ -74,20 +74,26 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center p-4">
-      <div className="w-full max-w-[400px]">
+    <div className="min-h-screen bg-[#0a0612] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-30%] left-[-20%] w-[500px] h-[500px] bg-violet-600/15 rounded-full blur-[100px]" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[80px]" />
+      </div>
+
+      <div className="relative w-full max-w-[400px] animate-fade-in">
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-12 h-12 bg-gray-900 rounded-2xl flex items-center justify-center">
+          <div className="w-12 h-12 bg-gradient-accent rounded-2xl flex items-center justify-center shadow-glow-lg">
             <span className="text-white font-extrabold text-xl">T</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Threadly</h1>
+          <h1 className="text-2xl font-extrabold text-white tracking-tight">Threadly</h1>
         </div>
         <Suspense fallback={
-          <div className="bg-white rounded-3xl p-8 shadow-card">
+          <div className="bg-white rounded-3xl p-8 shadow-premium">
             <div className="animate-pulse">
-              <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
-              <div className="h-12 bg-gray-200 rounded-xl"></div>
+              <div className="h-6 bg-gray-200 rounded-lg w-3/4 mb-2"></div>
+              <div className="h-4 bg-gray-100 rounded-lg w-1/2 mb-8"></div>
+              <div className="h-12 bg-gray-100 rounded-xl"></div>
             </div>
           </div>
         }>

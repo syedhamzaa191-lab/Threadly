@@ -163,5 +163,38 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Enable Realtime on messages
+-- 8. Reactions table
+CREATE TABLE IF NOT EXISTS public.reactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id uuid NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  emoji text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(message_id, user_id, emoji)
+);
+
+ALTER TABLE public.reactions ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON public.reactions(message_id);
+
+-- RLS Policies for reactions
+CREATE POLICY "Users can view reactions" ON public.reactions FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM public.messages m
+    JOIN public.channels c ON c.id = m.channel_id
+    WHERE m.id = message_id AND public.is_workspace_member(c.workspace_id, auth.uid())
+  )
+);
+CREATE POLICY "Users can add reactions" ON public.reactions FOR INSERT WITH CHECK (
+  auth.uid() = user_id AND
+  EXISTS (
+    SELECT 1 FROM public.messages m
+    JOIN public.channels c ON c.id = m.channel_id
+    WHERE m.id = message_id AND public.is_workspace_member(c.workspace_id, auth.uid())
+  )
+);
+CREATE POLICY "Users can remove own reactions" ON public.reactions FOR DELETE USING (auth.uid() = user_id);
+
+-- Enable Realtime on messages and reactions
 ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.reactions;

@@ -56,13 +56,13 @@ export function ManageUsersModal({ members, workspaceId, currentUserId, onClose,
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl w-full max-w-[500px] shadow-card-hover overflow-hidden max-h-[80vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-[#252133] rounded-3xl w-full max-w-[500px] shadow-2xl overflow-hidden max-h-[80vh] flex flex-col border border-white/[0.08] animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between p-6 pb-4 shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-gray-900 tracking-tight">Manage Members</h2>
-            <p className="text-[13px] text-gray-900 mt-0.5">{members.length} members</p>
+            <h2 className="text-lg font-bold text-white tracking-tight">Manage Members</h2>
+            <p className="text-[13px] text-white/40 mt-0.5">{members.length} members</p>
           </div>
           <IconButton size="sm" onClick={onClose}>
             <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -72,18 +72,18 @@ export function ManageUsersModal({ members, workspaceId, currentUserId, onClose,
         </div>
 
         {error && (
-          <div className="mx-6 mb-3 p-3 bg-red-50 rounded-xl">
-            <p className="text-sm text-red-600 font-medium">{error}</p>
+          <div className="mx-6 mb-3 p-3 bg-red-500/10 rounded-xl border border-red-500/20">
+            <p className="text-sm text-red-400 font-medium">{error}</p>
           </div>
         )}
         {success && (
-          <div className="mx-6 mb-3 p-3 bg-emerald-50 rounded-xl">
-            <p className="text-sm text-emerald-600 font-medium">{success}</p>
+          <div className="mx-6 mb-3 p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+            <p className="text-sm text-emerald-400 font-medium">{success}</p>
           </div>
         )}
 
         {/* Members List */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-6 pb-6 scrollbar-dark">
           <div className="space-y-2">
             {members.map((member) => {
               const isCurrentUser = member.user_id === currentUserId
@@ -91,13 +91,13 @@ export function ManageUsersModal({ members, workspaceId, currentUserId, onClose,
               const avatar = member.profiles?.avatar_url || null
 
               return (
-                <div key={member.user_id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                <div key={member.user_id} className="flex items-center gap-3 p-3 bg-white/[0.04] rounded-xl border border-white/[0.06]">
                   <Avatar name={name} src={avatar} size="md" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-bold text-gray-900 truncate">
-                      {name} {isCurrentUser && <span className="text-gray-400">(You)</span>}
+                    <p className="text-[13px] font-bold text-white truncate">
+                      {name} {isCurrentUser && <span className="text-white/30">(You)</span>}
                     </p>
-                    <p className="text-[11px] text-gray-500 font-medium uppercase">{member.role}</p>
+                    <p className="text-[11px] text-white/40 font-medium uppercase">{member.role}</p>
                   </div>
 
                   {!isCurrentUser && (
