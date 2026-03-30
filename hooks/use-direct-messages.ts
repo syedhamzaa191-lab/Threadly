@@ -71,8 +71,8 @@ export function useDirectMessages(workspaceId: string, currentUserId: string | u
           const otherId = (ch.dm_user_ids as string[]).find((id: string) => id !== currentUserId) || (ch.dm_user_ids as string[])[0]
           const profile = profiles.find((p: any) => p.id === otherId)
 
-          // Skip deactivated users
-          if (profile?.is_deleted) return null
+          // Skip deleted/deactivated users (no profile = permanently deleted)
+          if (!profile || profile.is_deleted) return null
 
           const lastMsg = lastMessageMap[ch.id]
 

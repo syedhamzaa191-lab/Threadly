@@ -72,7 +72,23 @@ export async function PATCH(request: Request) {
       // 5. Nullify channels created by this user
       await adminClient.from('channels').update({ created_by: null }).eq('created_by', target_user_id)
 
-      // 6. Delete profile
+      // 6. Delete DM channels involving this user
+      const { data: dmChannels } = await adminClient
+        .from('channels')
+        .select('id')
+        .eq('is_dm', true)
+        .contains('dm_user_ids', [target_user_id])
+      if (dmChannels && dmChannels.length > 0) {
+        const dmIds = dmChannels.map((c: any) => c.id)
+        // Delete messages in these DM channels
+        for (const dmId of dmIds) {
+          await adminClient.from('messages').delete().eq('channel_id', dmId)
+        }
+        // Delete the DM channels themselves
+        await adminClient.from('channels').delete().in('id', dmIds)
+      }
+
+      // 7. Delete profile
       await adminClient.from('profiles').delete().eq('id', target_user_id)
 
       // 7. Delete from Supabase Auth
@@ -162,10 +178,24 @@ export async function PATCH(request: Request) {
       // 5. Set channels.created_by to null where this user created channels
       await adminClient.from('channels').update({ created_by: null }).eq('created_by', target_user_id)
 
-      // 6. Delete profile
+      // 6. Delete DM channels involving this user
+      const { data: dmChs } = await adminClient
+        .from('channels')
+        .select('id')
+        .eq('is_dm', true)
+        .contains('dm_user_ids', [target_user_id])
+      if (dmChs && dmChs.length > 0) {
+        const ids = dmChs.map((c: any) => c.id)
+        for (const id of ids) {
+          await adminClient.from('messages').delete().eq('channel_id', id)
+        }
+        await adminClient.from('channels').delete().in('id', ids)
+      }
+
+      // 7. Delete profile
       await adminClient.from('profiles').delete().eq('id', target_user_id)
 
-      // 7. Delete auth user
+      // 8. Delete auth user
       const { error: authError } = await adminClient.auth.admin.deleteUser(target_user_id)
       if (authError) {
         return NextResponse.json({ error: 'User data cleaned but auth delete failed: ' + authError.message }, { status: 500 })
