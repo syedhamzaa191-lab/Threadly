@@ -26,25 +26,29 @@ const initialState: CallState = {
   iceState: '', hasRemoteTrack: false,
 }
 
-// Fetch TURN credentials from Metered.ca
-async function getIceServers(): Promise<RTCIceServer[]> {
+// ── Cached ICE servers ──
+let cachedIce: RTCIceServer[] | null = null
+let cacheTime = 0
+async function getIce(): Promise<RTCIceServer[]> {
+  // Cache for 5 minutes
+  if (cachedIce && Date.now() - cacheTime < 300000) return cachedIce
   try {
-    const res = await fetch('https://mobileapp.metered.live/api/v1/turn/credentials?apiKey=7d563a91b37d968d6fcc8d3a7622bdf4f964')
-    const servers = await res.json()
-    return servers
+    const r = await fetch('https://mobileapp.metered.live/api/v1/turn/credentials?apiKey=7d563a91b37d968d6fcc8d3a7622bdf4f964')
+    cachedIce = await r.json()
+    cacheTime = Date.now()
+    return cachedIce!
   } catch {
     return [{ urls: 'stun:stun.l.google.com:19302' }]
   }
 }
 
-function roomId(a: string, b: string) {
-  return a < b ? `call:${a}:${b}` : `call:${b}:${a}`
-}
+// Pre-fetch on module load
+if (typeof window !== 'undefined') getIce()
+
+function rid(a: string, b: string) { return a < b ? `call:${a}:${b}` : `call:${b}:${a}` }
 
 export function useCall(
-  userId: string | undefined,
-  userName: string,
-  userAvatar: string | null,
+  userId: string | undefined, userName: string, userAvatar: string | null,
   onCallLog?: (type: CallType, duration: number, remoteName: string) => void,
 ) {
   const [state, setState] = useState<CallState>(initialState)
@@ -55,232 +59,160 @@ export function useCall(
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const durRef = useRef(0)
   const sb = useRef(createClient())
-  const offer = useRef<RTCSessionDescriptionInit | null>(null)
+  const offerRef = useRef<RTCSessionDescriptionInit | null>(null)
   const roomCh = useRef<any>(null)
-  const notifyCh = useRef<any>(null)
   const remoteRef = useRef<string | null>(null)
   const logCb = useRef(onCallLog); logCb.current = onCallLog
   const logged = useRef(false)
-  const info = useRef<{ type: CallType; name: string } | null>(null)
+  const infoRef = useRef<{ type: CallType; name: string } | null>(null)
   const endRef = useRef<() => void>(() => {})
-  const queuedCandidates = useRef<RTCIceCandidateInit[]>([])
-  const hasRemoteDesc = useRef(false)
+  const queued = useRef<RTCIceCandidateInit[]>([])
+  const hasRD = useRef(false)
 
   // Audio
-  const audioCtx = useRef<AudioContext | null>(null)
-  const audioSrc = useRef<MediaStreamAudioSourceNode | null>(null)
-  const audioEl = useRef<HTMLAudioElement | null>(null)
+  const actx = useRef<AudioContext | null>(null)
+  const asrc = useRef<MediaStreamAudioSourceNode | null>(null)
+  const ael = useRef<HTMLAudioElement | null>(null)
 
   const initAudio = useCallback(() => {
     try {
-      if (!audioCtx.current || audioCtx.current.state === 'closed')
-        audioCtx.current = new (window.AudioContext || (window as any).webkitAudioContext)()
-      audioCtx.current.resume().catch(() => {})
+      if (!actx.current || actx.current.state === 'closed')
+        actx.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      actx.current.resume().catch(() => {})
     } catch {}
-    if (!audioEl.current) {
+    if (!ael.current) {
       const a = document.createElement('audio')
       a.autoplay = true; a.setAttribute('playsinline', 'true'); a.volume = 1
-      document.body.appendChild(a)
-      audioEl.current = a
+      document.body.appendChild(a); ael.current = a
     }
-    audioEl.current.srcObject = new MediaStream()
-    audioEl.current.play().catch(() => {})
+    ael.current.srcObject = new MediaStream()
+    ael.current.play().catch(() => {})
   }, [])
 
   const playRemote = useCallback((stream: MediaStream) => {
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = stream
-      remoteVideoRef.current.play().catch(() => {})
-    }
+    if (remoteVideoRef.current) { remoteVideoRef.current.srcObject = stream; remoteVideoRef.current.play().catch(() => {}) }
     try {
-      const ctx = audioCtx.current
-      if (ctx && ctx.state !== 'closed') {
-        if (audioSrc.current) try { audioSrc.current.disconnect() } catch {}
-        const s = ctx.createMediaStreamSource(stream)
-        s.connect(ctx.destination)
-        audioSrc.current = s
+      const c = actx.current
+      if (c && c.state !== 'closed') {
+        if (asrc.current) try { asrc.current.disconnect() } catch {}
+        const s = c.createMediaStreamSource(stream); s.connect(c.destination); asrc.current = s
       }
     } catch {}
-    if (audioEl.current) {
-      audioEl.current.srcObject = stream
-      audioEl.current.play().catch(() => {})
-    }
+    if (ael.current) { ael.current.srcObject = stream; ael.current.play().catch(() => {}) }
   }, [])
 
   useEffect(() => { remoteRef.current = state.remoteUserId }, [state.remoteUserId])
 
-  // ── Cleanup ──
   const cleanup = useCallback(() => {
-    localStream.current?.getTracks().forEach(t => t.stop())
-    localStream.current = null
-    if (audioSrc.current) try { audioSrc.current.disconnect() } catch {}
-    audioSrc.current = null
-    if (audioEl.current) { audioEl.current.pause(); audioEl.current.srcObject = null }
+    localStream.current?.getTracks().forEach(t => t.stop()); localStream.current = null
+    if (asrc.current) try { asrc.current.disconnect() } catch {}; asrc.current = null
+    if (ael.current) { ael.current.pause(); ael.current.srcObject = null }
     if (pcRef.current) { pcRef.current.close(); pcRef.current = null }
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     if (roomCh.current) { sb.current.removeChannel(roomCh.current); roomCh.current = null }
-    hasRemoteDesc.current = false
-    queuedCandidates.current = []
+    hasRD.current = false; queued.current = []
   }, [])
 
   useEffect(() => () => {
-    if (audioEl.current?.parentNode) audioEl.current.parentNode.removeChild(audioEl.current)
-    audioEl.current = null
-    if (audioCtx.current?.state !== 'closed') audioCtx.current?.close().catch(() => {})
+    if (ael.current?.parentNode) ael.current.parentNode.removeChild(ael.current); ael.current = null
+    if (actx.current?.state !== 'closed') actx.current?.close().catch(() => {})
   }, [])
 
   const startTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current)
     durRef.current = 0
-    timerRef.current = setInterval(() => {
-      durRef.current += 1
-      setState(p => ({ ...p, duration: durRef.current }))
-    }, 1000)
+    timerRef.current = setInterval(() => { durRef.current += 1; setState(p => ({ ...p, duration: durRef.current })) }, 1000)
   }, [])
 
-  // ── Apply queued ICE candidates ──
-  const flushCandidates = useCallback(async () => {
-    const conn = pcRef.current
-    if (!conn) return
-    for (const c of queuedCandidates.current) {
-      try { await conn.addIceCandidate(new RTCIceCandidate(c)) } catch {}
-    }
-    queuedCandidates.current = []
+  const flush = useCallback(async () => {
+    const c = pcRef.current; if (!c) return
+    for (const x of queued.current) try { await c.addIceCandidate(new RTCIceCandidate(x)) } catch {}
+    queued.current = []
   }, [])
 
-  // ── Join room channel with signaling handlers ──
-  const joinRoom = useCallback((rid: string): Promise<any> => {
+  const joinRoom = useCallback((id: string): Promise<any> => {
     if (roomCh.current) sb.current.removeChannel(roomCh.current)
-    const ch = sb.current.channel(rid, { config: { broadcast: { self: false } } })
+    const ch = sb.current.channel(id, { config: { broadcast: { self: false } } })
 
     ch.on('broadcast', { event: 'answer' }, async ({ payload }) => {
-      console.log('[Call] Got answer')
       if (!pcRef.current) return
-      hasRemoteDesc.current = true
+      hasRD.current = true
       await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload.answer))
-      await flushCandidates()
+      await flush()
     })
-
     ch.on('broadcast', { event: 'ice' }, async ({ payload }) => {
       if (!pcRef.current || !payload.candidate) return
-      if (hasRemoteDesc.current) {
-        try { await pcRef.current.addIceCandidate(new RTCIceCandidate(payload.candidate)) } catch {}
-      } else {
-        queuedCandidates.current.push(payload.candidate)
-      }
+      if (hasRD.current) try { await pcRef.current.addIceCandidate(new RTCIceCandidate(payload.candidate)) } catch {}
+      else queued.current.push(payload.candidate)
     })
+    ch.on('broadcast', { event: 'end' }, () => { cleanup(); setState(p => ({ ...p, status: 'ended' })); setTimeout(() => setState(initialState), 2000) })
+    ch.on('broadcast', { event: 'reject' }, () => { cleanup(); setState(p => ({ ...p, status: 'ended' })); setTimeout(() => setState(initialState), 2000) })
 
-    ch.on('broadcast', { event: 'end' }, () => {
-      cleanup()
-      setState(p => ({ ...p, status: 'ended' }))
-      setTimeout(() => setState(initialState), 2000)
-    })
+    return new Promise(r => ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') { roomCh.current = ch; r(ch) } }))
+  }, [cleanup, flush])
 
-    ch.on('broadcast', { event: 'reject' }, () => {
-      cleanup()
-      setState(p => ({ ...p, status: 'ended' }))
-      setTimeout(() => setState(initialState), 2000)
-    })
-
-    return new Promise(resolve => {
-      ch.subscribe((s: string) => {
-        if (s === 'SUBSCRIBED') { roomCh.current = ch; resolve(ch) }
-      })
-    })
-  }, [cleanup, flushCandidates])
-
-  // ── Create peer connection ──
-  const makePc = useCallback((iceServers: RTCIceServer[]) => {
-    const conn = new RTCPeerConnection({ iceServers })
-
-    conn.onicecandidate = (e) => {
-      if (e.candidate && roomCh.current) {
-        roomCh.current.send({ type: 'broadcast', event: 'ice', payload: { candidate: e.candidate.toJSON() } })
-      }
-    }
-
-    conn.ontrack = (e) => {
-      console.log('[Call] ontrack', e.track.kind)
-      setState(p => ({ ...p, hasRemoteTrack: true }))
-      playRemote(e.streams[0] || new MediaStream([e.track]))
-    }
-
-    conn.oniceconnectionstatechange = () => {
-      const s = conn.iceConnectionState
-      console.log('[Call] ICE:', s)
-      setState(p => ({ ...p, iceState: s }))
-      if (s === 'connected' || s === 'completed') {
-        setState(p => {
-          if (p.status !== 'connected') { startTimer(); return { ...p, status: 'connected', iceState: s } }
-          return { ...p, iceState: s }
-        })
-      }
+  const makePc = useCallback((ice: RTCIceServer[]) => {
+    const c = new RTCPeerConnection({ iceServers: ice })
+    c.onicecandidate = e => { if (e.candidate && roomCh.current) roomCh.current.send({ type: 'broadcast', event: 'ice', payload: { candidate: e.candidate.toJSON() } }) }
+    c.ontrack = e => { setState(p => ({ ...p, hasRemoteTrack: true })); playRemote(e.streams[0] || new MediaStream([e.track])) }
+    c.oniceconnectionstatechange = () => {
+      const s = c.iceConnectionState; setState(p => ({ ...p, iceState: s }))
+      if (s === 'connected' || s === 'completed') setState(p => { if (p.status !== 'connected') { startTimer(); return { ...p, status: 'connected', iceState: s } }; return { ...p, iceState: s } })
       if (s === 'failed') endRef.current()
-      if (s === 'disconnected') setTimeout(() => {
-        if (pcRef.current?.iceConnectionState === 'disconnected') endRef.current()
-      }, 5000)
+      if (s === 'disconnected') setTimeout(() => { if (pcRef.current?.iceConnectionState === 'disconnected') endRef.current() }, 5000)
     }
-
-    return conn
+    return c
   }, [playRemote, startTimer])
 
-  // ── Listen for incoming calls ──
+  // ── Incoming call listener ──
   useEffect(() => {
     if (!userId) return
     const ch = sb.current.channel(`call-notify:${userId}`, { config: { broadcast: { self: false } } })
     ch.on('broadcast', { event: 'incoming' }, ({ payload }) => {
-      console.log('[Call] Incoming from', payload.callerName)
-      offer.current = payload.offer
+      offerRef.current = payload.offer
       logged.current = false
-      info.current = { type: payload.type, name: payload.callerName }
-      setState({
-        ...initialState, status: 'ringing', type: payload.type,
-        remoteUserId: payload.callerId,
-        remoteUserName: payload.callerName,
-        remoteUserAvatar: payload.callerAvatar,
-      })
+      infoRef.current = { type: payload.type, name: payload.callerName }
+      setState({ ...initialState, status: 'ringing', type: payload.type, remoteUserId: payload.callerId, remoteUserName: payload.callerName, remoteUserAvatar: payload.callerAvatar })
     })
-    ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') notifyCh.current = ch })
-    return () => { sb.current.removeChannel(ch); notifyCh.current = null }
+    ch.subscribe()
+    return () => { sb.current.removeChannel(ch) }
   }, [userId])
 
-  // ── Start call ──
+  // ── Start call (optimized — parallel ops) ──
   const startCall = useCallback(async (
     remoteUserId: string, remoteName: string, remoteAvatar: string | null, type: CallType,
   ) => {
     if (!userId) return
     initAudio()
 
-    let stream: MediaStream
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' })
-    } catch (err: any) {
-      alert(err?.name === 'NotAllowedError' ? 'Mic permission denied.' : err?.name === 'NotFoundError' ? 'No mic found.' : 'Cannot access mic.')
-      return
-    }
-    localStream.current = stream
-    if (localVideoRef.current) localVideoRef.current.srcObject = stream
-
+    // Show UI immediately
     logged.current = false
-    info.current = { type, name: remoteName }
+    infoRef.current = { type, name: remoteName }
     setState({ ...initialState, status: 'calling', type, remoteUserId, remoteUserName: remoteName, remoteUserAvatar: remoteAvatar })
 
     try {
-      const iceServers = await getIceServers()
-      const rid = roomId(userId, remoteUserId)
-      const room = await joinRoom(rid)
+      // Run getUserMedia, getIce, joinRoom, and notify channel subscribe ALL in parallel
+      const [stream, ice, room, nch] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' }),
+        getIce(),
+        joinRoom(rid(userId, remoteUserId)),
+        new Promise<any>(res => {
+          const c = sb.current.channel(`call-notify:${remoteUserId}`, { config: { broadcast: { self: false } } })
+          c.subscribe((s: string) => { if (s === 'SUBSCRIBED') res(c) })
+        }),
+      ])
 
-      const conn = makePc(iceServers)
-      pcRef.current = conn
-      hasRemoteDesc.current = false
+      localStream.current = stream
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream
+
+      const conn = makePc(ice)
+      pcRef.current = conn; hasRD.current = false
       stream.getTracks().forEach(t => conn.addTrack(t, stream))
 
       const o = await conn.createOffer()
       await conn.setLocalDescription(o)
 
-      // Send offer via receiver's notify channel
-      const nch = sb.current.channel(`call-notify:${remoteUserId}`, { config: { broadcast: { self: false } } })
-      await new Promise<void>(r => nch.subscribe((s: string) => { if (s === 'SUBSCRIBED') r() }))
+      // Send offer instantly
       await nch.send({
         type: 'broadcast', event: 'incoming',
         payload: { offer: conn.localDescription!.toJSON(), callerId: userId, callerName: userName, callerAvatar: userAvatar, type },
@@ -290,53 +222,51 @@ export function useCall(
       // Auto-end after 45s if no answer
       setTimeout(() => {
         setState(p => {
-          if (p.status === 'calling') {
-            room?.send({ type: 'broadcast', event: 'end', payload: {} })
-            cleanup()
-            return { ...p, status: 'ended' }
-          }
+          if (p.status === 'calling') { room?.send({ type: 'broadcast', event: 'end', payload: {} }); cleanup(); return { ...p, status: 'ended' } }
           return p
         })
         setTimeout(() => setState(p => p.status === 'ended' ? initialState : p), 2000)
       }, 45000)
-    } catch (err) {
-      console.error('[Call] Start failed:', err)
+    } catch (err: any) {
+      if (err?.name === 'NotAllowedError') alert('Mic permission denied.')
+      else if (err?.name === 'NotFoundError') alert('No mic found.')
+      else console.error('[Call] Start failed:', err)
       cleanup(); setState(initialState)
     }
   }, [userId, userName, userAvatar, makePc, joinRoom, cleanup, initAudio])
 
-  // ── Accept call ──
+  // ── Accept call (optimized — parallel ops) ──
   const acceptCall = useCallback(async () => {
-    const rid = remoteRef.current
-    if (!offer.current || !rid || !userId) return
+    const remId = remoteRef.current
+    if (!offerRef.current || !remId || !userId) return
     initAudio()
 
+    // Show connecting UI immediately
+    setState(p => ({ ...p, status: 'calling', iceState: 'connecting' }))
+
     try {
-      const iceServers = await getIceServers()
-      const room = await joinRoom(roomId(userId, rid))
+      // Run getIce, joinRoom, getUserMedia ALL in parallel
+      const [ice, room, stream] = await Promise.all([
+        getIce(),
+        joinRoom(rid(userId, remId)),
+        navigator.mediaDevices.getUserMedia({ audio: true, video: state.type === 'video' }),
+      ])
 
-      const conn = makePc(iceServers)
-      pcRef.current = conn
-      hasRemoteDesc.current = true
-
-      await conn.setRemoteDescription(new RTCSessionDescription(offer.current))
-      offer.current = null
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: state.type === 'video' })
       localStream.current = stream
       if (localVideoRef.current) localVideoRef.current.srcObject = stream
-      stream.getTracks().forEach(t => conn.addTrack(t, stream))
 
+      const conn = makePc(ice)
+      pcRef.current = conn; hasRD.current = true
+
+      await conn.setRemoteDescription(new RTCSessionDescription(offerRef.current))
+      offerRef.current = null
+
+      stream.getTracks().forEach(t => conn.addTrack(t, stream))
       const ans = await conn.createAnswer()
       await conn.setLocalDescription(ans)
 
-      await room.send({
-        type: 'broadcast', event: 'answer',
-        payload: { answer: conn.localDescription!.toJSON() },
-      })
-      console.log('[Call] Answer sent')
-
-      setState(p => ({ ...p, status: 'calling', iceState: 'connecting' }))
+      // Send answer instantly
+      await room.send({ type: 'broadcast', event: 'answer', payload: { answer: conn.localDescription!.toJSON() } })
     } catch (err: any) {
       console.error('[Call] Accept failed:', err)
       alert(err?.name === 'NotAllowedError' ? 'Mic permission denied.' : 'Call failed.')
@@ -344,38 +274,23 @@ export function useCall(
     }
   }, [userId, state.type, makePc, joinRoom, initAudio])
 
-  // ── Reject ──
   const rejectCall = useCallback(() => {
     roomCh.current?.send({ type: 'broadcast', event: 'reject', payload: {} })
     cleanup(); setState(initialState)
   }, [cleanup])
 
-  // ── End call ──
   const endCall = useCallback(() => {
     roomCh.current?.send({ type: 'broadcast', event: 'end', payload: {} })
-    if (!logged.current && info.current && logCb.current) {
-      logged.current = true
-      logCb.current(info.current.type, durRef.current, info.current.name)
-    }
+    if (!logged.current && infoRef.current && logCb.current) { logged.current = true; logCb.current(infoRef.current.type, durRef.current, infoRef.current.name) }
     cleanup()
     setState(p => ({ ...p, status: 'ended' }))
-    setTimeout(() => { setState(initialState); logged.current = false; info.current = null }, 2000)
+    setTimeout(() => { setState(initialState); logged.current = false; infoRef.current = null }, 2000)
   }, [cleanup])
 
   endRef.current = endCall
 
-  const toggleMute = useCallback(() => {
-    const t = localStream.current?.getAudioTracks()[0]
-    if (t) { t.enabled = !t.enabled; setState(p => ({ ...p, isMuted: !t.enabled })) }
-  }, [])
+  const toggleMute = useCallback(() => { const t = localStream.current?.getAudioTracks()[0]; if (t) { t.enabled = !t.enabled; setState(p => ({ ...p, isMuted: !t.enabled })) } }, [])
+  const toggleVideo = useCallback(() => { const t = localStream.current?.getVideoTracks()[0]; if (t) { t.enabled = !t.enabled; setState(p => ({ ...p, isVideoOff: !t.enabled })) } }, [])
 
-  const toggleVideo = useCallback(() => {
-    const t = localStream.current?.getVideoTracks()[0]
-    if (t) { t.enabled = !t.enabled; setState(p => ({ ...p, isVideoOff: !t.enabled })) }
-  }, [])
-
-  return {
-    callState: state, localVideoRef, remoteVideoRef,
-    startCall, acceptCall, rejectCall, endCall, toggleMute, toggleVideo,
-  }
+  return { callState: state, localVideoRef, remoteVideoRef, startCall, acceptCall, rejectCall, endCall, toggleMute, toggleVideo }
 }
