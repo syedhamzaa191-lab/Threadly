@@ -12,6 +12,8 @@ interface CallModalProps {
   isMuted: boolean
   isVideoOff: boolean
   duration: number
+  iceState: string
+  hasRemoteTrack: boolean
   localVideoRef: RefObject<HTMLVideoElement | null>
   remoteVideoRef: RefObject<HTMLVideoElement | null>
   onEndCall: () => void
@@ -33,6 +35,8 @@ export function CallModal({
   isMuted,
   isVideoOff,
   duration,
+  iceState,
+  hasRemoteTrack,
   localVideoRef,
   remoteVideoRef,
   onEndCall,
@@ -103,11 +107,17 @@ export function CallModal({
             </div>
 
             <h2 className="text-xl font-bold text-white mb-1">{remoteName}</h2>
-            <p className="text-sm text-white/40 mb-8">
-              {status === 'calling' && 'Calling...'}
+            <p className="text-sm text-white/40 mb-2">
+              {status === 'calling' && (iceState === 'checking' ? 'Connecting...' : 'Calling...')}
               {status === 'connected' && formatDuration(duration)}
               {status === 'ended' && 'Call Ended'}
             </p>
+
+            {/* Debug info - remove after fixing */}
+            <div className="text-[10px] text-white/20 mb-6 space-y-0.5">
+              <p>ICE: {iceState || 'none'}</p>
+              <p>Track: {hasRemoteTrack ? 'yes' : 'no'}</p>
+            </div>
 
             {status === 'connected' && (
               <div className="flex items-center justify-center gap-3 mb-2">

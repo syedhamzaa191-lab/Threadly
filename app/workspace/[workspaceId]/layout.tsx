@@ -244,6 +244,8 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
           isMuted={callState.isMuted}
           isVideoOff={callState.isVideoOff}
           duration={callState.duration}
+          iceState={callState.iceState}
+          hasRemoteTrack={callState.hasRemoteTrack}
           localVideoRef={localVideoRef}
           remoteVideoRef={remoteVideoRef}
           onEndCall={endCall}
