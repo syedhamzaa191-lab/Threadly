@@ -73,9 +73,20 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
   const {
     callState, localVideoRef, remoteVideoRef,
-    startCall, acceptCall, rejectCall, endCall,
-    toggleMute, toggleVideo, toggleSpeaker,
+    startCall, acceptCall, rejectCall, rejectWithMessage, endCall,
+    toggleMute, toggleVideo, toggleSpeaker, rejectMsgCb,
   } = useCall(user?.id, displayNameForCall, displayAvatarForCall, handleCallLog)
+
+  // Handle reject message from receiver — send it as a DM
+  rejectMsgCb.current = useCallback(async (message: string) => {
+    const activeChannel = activeDmIdRef.current
+    if (!activeChannel) return
+    await fetch('/api/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel_id: activeChannel, content: message }),
+    })
+  }, [])
   const { unread, newMessageAlert, dismissAlert } = useUnread(workspaceId, currentActiveId, user?.id)
 
   if (authLoading || wsLoading) {
@@ -233,6 +244,18 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
           type={callState.type}
           onAccept={acceptCall}
           onReject={rejectCall}
+          onRejectWithMessage={async (msg) => {
+            // Send message to the DM first, then reject
+            const activeChannel = activeDmIdRef.current
+            if (activeChannel) {
+              await fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channel_id: activeChannel, content: msg }),
+              })
+            }
+            rejectWithMessage(msg)
+          }}
         />
       )}
       {(callState.status === 'calling' || callState.status === 'connected' || callState.status === 'ended') && (

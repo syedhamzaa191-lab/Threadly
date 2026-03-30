@@ -1,6 +1,6 @@
 'use client'
 
-import { RefObject } from 'react'
+import { RefObject, useEffect, useRef } from 'react'
 import { CallStatus, CallType } from '@/hooks/use-call'
 import { Avatar } from '@/components/ui/avatar'
 
@@ -47,6 +47,19 @@ export function CallModal({
   onToggleVideo,
   onToggleSpeaker,
 }: CallModalProps) {
+  // Dialing tone when calling
+  const dialRef = useRef<HTMLAudioElement | null>(null)
+  useEffect(() => {
+    if (status === 'calling') {
+      const audio = new Audio('/sounds/dialing.mp3')
+      audio.loop = true
+      audio.volume = 0.4
+      audio.play().catch(() => {})
+      dialRef.current = audio
+    }
+    return () => { if (dialRef.current) { dialRef.current.pause(); dialRef.current = null } }
+  }, [status])
+
   if (status === 'idle') return null
 
   return (

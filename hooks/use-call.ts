@@ -64,6 +64,7 @@ export function useCall(
   const roomCh = useRef<any>(null)
   const remoteRef = useRef<string | null>(null)
   const logCb = useRef(onCallLog); logCb.current = onCallLog
+  const rejectMsgCb = useRef<((msg: string) => void) | null>(null)
   const logged = useRef(false)
   const infoRef = useRef<{ type: CallType; name: string } | null>(null)
   const endRef = useRef<() => void>(() => {})
@@ -200,7 +201,12 @@ export function useCall(
       setState({ ...initialState, status: 'ringing', type: payload.type, remoteUserId: payload.callerId, remoteUserName: payload.callerName, remoteUserAvatar: payload.callerAvatar })
     })
     // Listen for reject from receiver (sent before they join room)
-    ch.on('broadcast', { event: 'incoming-reject' }, () => {
+    ch.on('broadcast', { event: 'incoming-reject' }, ({ payload }) => {
+      // If receiver sent a message, log it as a DM via the onCallLog mechanism
+      if (payload?.message && logCb.current && infoRef.current) {
+        // Use a special callback to send the reject message
+        rejectMsgCb.current?.(payload.message)
+      }
       cleanup()
       setState(p => ({ ...p, status: 'ended' }))
       setTimeout(() => setState(initialState), 2000)
@@ -306,7 +312,6 @@ export function useCall(
   }, [userId, state.type, makePc, joinRoom, initAudio])
 
   const rejectCall = useCallback(async () => {
-    // Receiver hasn't joined room yet, so send reject via caller's notify channel
     const callerId = remoteRef.current
     if (callerId) {
       try {
@@ -316,7 +321,21 @@ export function useCall(
         setTimeout(() => sb.current.removeChannel(ch), 2000)
       } catch {}
     }
-    // Also try room channel if already joined
+    roomCh.current?.send({ type: 'broadcast', event: 'reject', payload: {} })
+    cleanup(); setState(initialState)
+  }, [cleanup])
+
+  // Reject with a quick reply message sent to the DM
+  const rejectWithMessage = useCallback(async (message: string) => {
+    const callerId = remoteRef.current
+    if (callerId) {
+      try {
+        const ch = sb.current.channel(`call-notify:${callerId}`, { config: { broadcast: { self: false } } })
+        await new Promise<void>(r => ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') r() }))
+        await ch.send({ type: 'broadcast', event: 'incoming-reject', payload: { message } })
+        setTimeout(() => sb.current.removeChannel(ch), 2000)
+      } catch {}
+    }
     roomCh.current?.send({ type: 'broadcast', event: 'reject', payload: {} })
     cleanup(); setState(initialState)
   }, [cleanup])
@@ -370,5 +389,5 @@ export function useCall(
   const toggleMute = useCallback(() => { const t = localStream.current?.getAudioTracks()[0]; if (t) { t.enabled = !t.enabled; setState(p => ({ ...p, isMuted: !t.enabled })) } }, [])
   const toggleVideo = useCallback(() => { const t = localStream.current?.getVideoTracks()[0]; if (t) { t.enabled = !t.enabled; setState(p => ({ ...p, isVideoOff: !t.enabled })) } }, [])
 
-  return { callState: state, localVideoRef, remoteVideoRef, startCall, acceptCall, rejectCall, endCall, toggleMute, toggleVideo, toggleSpeaker }
+  return { callState: state, localVideoRef, remoteVideoRef, startCall, acceptCall, rejectCall, rejectWithMessage, endCall, toggleMute, toggleVideo, toggleSpeaker, rejectMsgCb }
 }
