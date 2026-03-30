@@ -65,6 +65,7 @@ export function useCall(
   const remoteRef = useRef<string | null>(null)
   const logCb = useRef(onCallLog); logCb.current = onCallLog
   const logged = useRef(false)
+  const isCaller = useRef(false)
   const infoRef = useRef<{ type: CallType; name: string } | null>(null)
   const endRef = useRef<() => void>(() => {})
   const queued = useRef<RTCIceCandidateInit[]>([])
@@ -196,6 +197,7 @@ export function useCall(
     ch.on('broadcast', { event: 'incoming' }, ({ payload }) => {
       offerRef.current = payload.offer
       logged.current = false
+      isCaller.current = false
       infoRef.current = { type: payload.type, name: payload.callerName }
       setState({ ...initialState, status: 'ringing', type: payload.type, remoteUserId: payload.callerId, remoteUserName: payload.callerName, remoteUserAvatar: payload.callerAvatar })
     })
@@ -218,6 +220,7 @@ export function useCall(
 
     // Show UI immediately
     logged.current = false
+    isCaller.current = true
     infoRef.current = { type, name: remoteName }
     setState({ ...initialState, status: 'calling', type, remoteUserId, remoteUserName: remoteName, remoteUserAvatar: remoteAvatar })
 
@@ -336,10 +339,10 @@ export function useCall(
 
   const endCall = useCallback(() => {
     roomCh.current?.send({ type: 'broadcast', event: 'end', payload: {} })
-    if (!logged.current && infoRef.current && logCb.current) { logged.current = true; logCb.current(infoRef.current.type, durRef.current, infoRef.current.name) }
+    if (!logged.current && isCaller.current && infoRef.current && logCb.current) { logged.current = true; logCb.current(infoRef.current.type, durRef.current, infoRef.current.name) }
     cleanup()
     setState(p => ({ ...p, status: 'ended' }))
-    setTimeout(() => { setState(initialState); logged.current = false; infoRef.current = null }, 2000)
+    setTimeout(() => { setState(initialState); logged.current = false; isCaller.current = false; infoRef.current = null }, 2000)
   }, [cleanup])
 
   endRef.current = endCall
