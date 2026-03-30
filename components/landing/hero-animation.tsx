@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { AnimatedCharacter } from './animated-character'
 
 const ALL_CONVERSATIONS = [
   // Software Dev
@@ -186,14 +187,12 @@ export function HeroAnimation() {
 
         {/* Character with animations */}
         <div className={`self-center relative ${typing === 'A' ? '' : 'animate-bob-a'}`}>
-          <div className="relative">
-            <img
-              src="/character2.png"
-              alt="Jake"
-              className={`w-[120px] sm:w-[180px] md:w-[220px] lg:w-[340px] xl:w-[400px] drop-shadow-[0_10px_50px_rgba(124,58,237,0.25)] ${typing === 'A' ? 'char-typing-l' : ''}`}
-              style={typing !== 'A' ? { transform: 'scaleX(-1)' } : undefined}
-            />
-          </div>
+          <AnimatedCharacter
+            name="Jake"
+            color="purple"
+            isTyping={typing === 'A'}
+            className="w-[160px] sm:w-[220px] md:w-[300px] lg:w-[400px] xl:w-[460px]"
+          />
           <p className="text-center text-[12px] lg:text-[14px] font-bold text-purple-300/50 mt-1 tracking-wide">Jake</p>
         </div>
       </div>
@@ -223,14 +222,12 @@ export function HeroAnimation() {
 
         {/* Character with animations */}
         <div className={`self-center relative ${typing === 'B' ? '' : 'animate-bob-b'}`}>
-          <div className="relative">
-            <img
-              src="/character.png"
-              alt="Ryan"
-              className={`w-[120px] sm:w-[180px] md:w-[220px] lg:w-[340px] xl:w-[400px] drop-shadow-[0_10px_50px_rgba(59,130,246,0.25)] ${typing === 'B' ? 'char-typing-l' : ''}`}
-              style={typing !== 'B' ? { transform: 'scaleX(-1)' } : undefined}
-            />
-          </div>
+          <AnimatedCharacter
+            name="Ryan"
+            color="blue"
+            isTyping={typing === 'B'}
+            className="w-[160px] sm:w-[220px] md:w-[300px] lg:w-[400px] xl:w-[460px]"
+          />
           <p className="text-center text-[12px] lg:text-[14px] font-bold text-blue-300/50 mt-1 tracking-wide">Ryan</p>
         </div>
       </div>

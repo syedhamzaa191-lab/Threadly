@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { Avatar } from '@/components/ui/avatar'
@@ -27,43 +27,51 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [selectedMember, setSelectedMember] = useState<MemberProfile | null>(null)
+  const [myRole, setMyRole] = useState<string>('member')
   const supabase = createClient()
 
+  const loadMembers = useCallback(async () => {
+    const { data: mems } = await supabase
+      .from('workspace_members')
+      .select('user_id, role')
+      .eq('workspace_id', workspaceId)
+
+    if (!mems || mems.length === 0) { setLoading(false); return }
+
+    // Find current user's role
+    const myMem = mems.find((m: any) => m.user_id === user?.id)
+    if (myMem) setMyRole(myMem.role)
+
+    const userIds = mems.map((m: any) => m.user_id)
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, avatar_url, bio, phone, location, department')
+      .in('id', userIds)
+
+    const combined = mems.map((m: any) => {
+      const p = profiles?.find((p: any) => p.id === m.user_id)
+      return {
+        user_id: m.user_id,
+        role: m.role,
+        full_name: p?.full_name || 'Unknown',
+        email: p?.email || '',
+        avatar_url: p?.avatar_url || null,
+        bio: p?.bio || '',
+        phone: p?.phone || '',
+        location: p?.location || '',
+        department: p?.department || '',
+      }
+    })
+
+    setMembers(combined)
+    setLoading(false)
+  }, [workspaceId, user?.id])
+
   useEffect(() => {
-    async function load() {
-      const { data: mems } = await supabase
-        .from('workspace_members')
-        .select('user_id, role')
-        .eq('workspace_id', workspaceId)
+    loadMembers()
+  }, [loadMembers])
 
-      if (!mems || mems.length === 0) { setLoading(false); return }
-
-      const userIds = mems.map((m: any) => m.user_id)
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, avatar_url, bio, phone, location, department')
-        .in('id', userIds)
-
-      const combined = mems.map((m: any) => {
-        const p = profiles?.find((p: any) => p.id === m.user_id)
-        return {
-          user_id: m.user_id,
-          role: m.role,
-          full_name: p?.full_name || 'Unknown',
-          email: p?.email || '',
-          avatar_url: p?.avatar_url || null,
-          bio: p?.bio || '',
-          phone: p?.phone || '',
-          location: p?.location || '',
-          department: p?.department || '',
-        }
-      })
-
-      setMembers(combined)
-      setLoading(false)
-    }
-    load()
-  }, [workspaceId])
+  const isAdmin = myRole === 'owner' || myRole === 'admin'
 
   const filtered = members.filter((m) =>
     m.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -186,7 +194,15 @@ export default function MembersPage() {
 
       {/* Member Detail Modal */}
       {selectedMember && (
-        <MemberDetailModal member={selectedMember} isYou={selectedMember.user_id === user?.id} onClose={() => setSelectedMember(null)} />
+        <MemberDetailModal
+          member={selectedMember}
+          isYou={selectedMember.user_id === user?.id}
+          isAdmin={isAdmin}
+          myRole={myRole}
+          workspaceId={workspaceId}
+          onClose={() => setSelectedMember(null)}
+          onRefresh={loadMembers}
+        />
       )}
     </>
   )
@@ -206,7 +222,51 @@ function RoleBadge({ role }: { role: string }) {
   )
 }
 
-function MemberDetailModal({ member, isYou, onClose }: { member: MemberProfile; isYou: boolean; onClose: () => void }) {
+function MemberDetailModal({ member, isYou, isAdmin, myRole, workspaceId, onClose, onRefresh }: {
+  member: MemberProfile
+  isYou: boolean
+  isAdmin: boolean
+  myRole: string
+  workspaceId: string
+  onClose: () => void
+  onRefresh: () => void
+}) {
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [actionError, setActionError] = useState('')
+  const [actionSuccess, setActionSuccess] = useState('')
+
+  const canManage = isAdmin && !isYou && member.role !== 'owner'
+
+  const handleAction = async (action: string, newRole?: string) => {
+    setActionLoading(action)
+    setActionError('')
+    setActionSuccess('')
+
+    const res = await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action,
+        target_user_id: member.user_id,
+        workspace_id: workspaceId,
+        ...(newRole ? { new_role: newRole } : {}),
+      }),
+    })
+
+    const data = await res.json()
+    setActionLoading(null)
+
+    if (!res.ok) {
+      setActionError(data.error || 'Something went wrong')
+    } else {
+      setActionSuccess(data.message || 'Done!')
+      onRefresh()
+      if (action === 'deactivate') {
+        setTimeout(onClose, 1500)
+      }
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
@@ -251,6 +311,53 @@ function MemberDetailModal({ member, isYou, onClose }: { member: MemberProfile; 
               Online
             </span>
           </div>
+
+          {/* Admin Actions */}
+          {canManage && (
+            <div className="mt-5">
+              <p className="text-[11px] font-bold text-white/25 uppercase tracking-wider mb-2">Admin Actions</p>
+
+              {actionError && (
+                <div className="mb-3 p-3 bg-red-500/10 rounded-xl border border-red-500/20">
+                  <p className="text-[12px] text-red-400 font-medium">{actionError}</p>
+                </div>
+              )}
+              {actionSuccess && (
+                <div className="mb-3 p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                  <p className="text-[12px] text-emerald-400 font-medium">{actionSuccess}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                {/* Role toggle */}
+                <button
+                  onClick={() => handleAction('change_role', member.role === 'admin' ? 'member' : 'admin')}
+                  disabled={actionLoading !== null}
+                  className="flex-1 px-3 py-2.5 rounded-xl text-[12px] font-bold bg-white/[0.06] text-white/60 hover:bg-white/[0.1] hover:text-white border border-white/[0.08] transition-all disabled:opacity-50"
+                >
+                  {actionLoading === 'change_role' ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-3 h-3 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+                      Changing...
+                    </span>
+                  ) : member.role === 'admin' ? 'Make Member' : 'Make Admin'}
+                </button>
+                {/* Deactivate */}
+                <button
+                  onClick={() => handleAction('deactivate')}
+                  disabled={actionLoading !== null}
+                  className="flex-1 px-3 py-2.5 rounded-xl text-[12px] font-bold bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-all disabled:opacity-50"
+                >
+                  {actionLoading === 'deactivate' ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-3 h-3 border-2 border-red-400/20 border-t-red-400/60 rounded-full animate-spin" />
+                      Deactivating...
+                    </span>
+                  ) : 'Deactivate User'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Bio */}
           {member.bio && (

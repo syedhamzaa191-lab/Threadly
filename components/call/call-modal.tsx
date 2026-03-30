@@ -85,9 +85,9 @@ export function CallModal({
         ) : (
           /* Voice Call / Calling / Ringing View */
           <div className="bg-[#1a1530] rounded-3xl p-8 text-center shadow-2xl border border-white/[0.06]">
-            {/* Hidden video elements for voice call */}
-            <video ref={remoteVideoRef} autoPlay playsInline className="hidden" />
-            <video ref={localVideoRef} autoPlay playsInline muted className="hidden" />
+            {/* Video elements for voice call - use sr-only instead of hidden to allow audio playback */}
+            <video ref={remoteVideoRef} autoPlay playsInline className="sr-only" />
+            <video ref={localVideoRef} autoPlay playsInline muted className="sr-only" />
 
             {/* Animated rings for calling state */}
             <div className="relative w-28 h-28 mx-auto mb-6">

@@ -20,6 +20,25 @@ interface CallState {
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  // Free TURN servers from Open Relay (metered.ca)
+  {
+    urls: 'turn:openrelay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
 ]
 
 const initialState: CallState = {
@@ -38,13 +57,15 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
 
   const peerConnection = useRef<RTCPeerConnection | null>(null)
   const localStream = useRef<MediaStream | null>(null)
+  const remoteStreamRef = useRef<MediaStream | null>(null)
   const localVideoRef = useRef<HTMLVideoElement | null>(null)
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null)
+  // Programmatic audio element — not rendered via React, avoids ref timing issues
+  const remoteAudioEl = useRef<HTMLAudioElement | null>(null)
   const durationInterval = useRef<NodeJS.Timeout | null>(null)
   const supabaseRef = useRef(createClient())
   const pendingOffer = useRef<RTCSessionDescriptionInit | null>(null)
   const remoteChannelRef = useRef<any>(null)
-  // Store refs so callbacks always see the latest values
   const remoteUserIdRef = useRef<string | null>(null)
   const onCallLogRef = useRef(onCallLog)
   onCallLogRef.current = onCallLog
@@ -53,7 +74,49 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
   const isInitiatorRef = useRef(false)
   const durationRef = useRef(0)
 
-  // Keep ref in sync with state
+  // Create a persistent audio element on mount (attached to DOM body)
+  useEffect(() => {
+    const audio = document.createElement('audio')
+    audio.autoplay = true
+    audio.setAttribute('playsinline', 'true')
+    // Keep it in DOM but invisible — needed for some mobile browsers
+    audio.style.position = 'fixed'
+    audio.style.top = '-9999px'
+    audio.style.left = '-9999px'
+    audio.style.width = '0'
+    audio.style.height = '0'
+    document.body.appendChild(audio)
+    remoteAudioEl.current = audio
+    return () => {
+      audio.pause()
+      audio.srcObject = null
+      if (audio.parentNode) audio.parentNode.removeChild(audio)
+      remoteAudioEl.current = null
+    }
+  }, [])
+
+  // "Unlock" audio playback — must be called inside a user gesture (click handler)
+  const unlockAudio = useCallback(() => {
+    const audio = remoteAudioEl.current
+    if (!audio) return
+    // Playing (even silence) during a user gesture unlocks autoplay on mobile
+    audio.srcObject = new MediaStream()
+    audio.play().catch(() => {})
+  }, [])
+
+  // Attach remote stream to audio & video elements
+  const attachRemoteStream = useCallback((stream: MediaStream) => {
+    remoteStreamRef.current = stream
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = stream
+    }
+    const audio = remoteAudioEl.current
+    if (audio) {
+      audio.srcObject = stream
+      audio.play().catch((e) => console.warn('Audio play blocked:', e))
+    }
+  }, [])
+
   useEffect(() => {
     remoteUserIdRef.current = state.remoteUserId
   }, [state.remoteUserId])
@@ -63,6 +126,10 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       localStream.current.getTracks().forEach(t => t.stop())
       localStream.current = null
     }
+    remoteStreamRef.current = null
+    if (remoteAudioEl.current) {
+      remoteAudioEl.current.srcObject = null
+    }
     if (peerConnection.current) {
       peerConnection.current.close()
       peerConnection.current = null
@@ -71,7 +138,6 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       clearInterval(durationInterval.current)
       durationInterval.current = null
     }
-    // Unsubscribe from remote channel
     if (remoteChannelRef.current) {
       supabaseRef.current.removeChannel(remoteChannelRef.current)
       remoteChannelRef.current = null
@@ -81,9 +147,7 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
 
   const sendToRemote = useCallback(async (remoteId: string, event: string, payload: any) => {
     const supabase = supabaseRef.current
-    // Subscribe to remote user's channel, send, then it stays connected for ICE
     if (!remoteChannelRef.current || remoteChannelRef.current._topic !== `call-signal:${remoteId}`) {
-      // Cleanup old channel
       if (remoteChannelRef.current) {
         supabase.removeChannel(remoteChannelRef.current)
       }
@@ -125,19 +189,31 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     }
 
     pc.ontrack = (event) => {
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = event.streams[0]
+      // Get or build the remote stream
+      let stream = event.streams[0]
+      if (!stream) {
+        if (!remoteStreamRef.current) {
+          remoteStreamRef.current = new MediaStream()
+        }
+        remoteStreamRef.current.addTrack(event.track)
+        stream = remoteStreamRef.current
       }
+      attachRemoteStream(stream)
     }
 
     pc.onconnectionstatechange = () => {
+      console.log('[WebRTC] Connection state:', pc.connectionState)
       if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
         endCall()
       }
     }
 
+    pc.oniceconnectionstatechange = () => {
+      console.log('[WebRTC] ICE state:', pc.iceConnectionState)
+    }
+
     return pc
-  }, [sendToRemote])
+  }, [sendToRemote, attachRemoteStream])
 
   // Listen on own channel for incoming signals
   useEffect(() => {
@@ -150,7 +226,6 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
 
     myChannel
       .on('broadcast', { event: 'call-offer' }, async ({ payload }) => {
-        // Incoming call
         pendingOffer.current = payload.offer
         hasLoggedRef.current = false
         callInfoRef.current = { type: payload.type, remoteName: payload.callerName }
@@ -196,7 +271,7 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     }
   }, [userId, cleanup, startDurationTimer])
 
-  // Start a call - request permissions FIRST, then show calling UI
+  // Start a call
   const startCall = useCallback(async (
     remoteUserId: string,
     remoteUserName: string,
@@ -205,7 +280,9 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
   ) => {
     if (!userId) return
 
-    // Step 1: Get mic/camera permission BEFORE showing UI
+    // Unlock audio during this user gesture
+    unlockAudio()
+
     let stream: MediaStream
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -214,7 +291,6 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       })
     } catch (err: any) {
       console.error('Permission denied:', err)
-      // Show specific message based on error
       if (err?.name === 'NotAllowedError') {
         alert('Microphone/Camera permission denied. Click the lock icon in the address bar to allow access, then try again.')
       } else if (err?.name === 'NotFoundError') {
@@ -225,7 +301,6 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       return
     }
 
-    // Step 2: Permission granted - now show calling UI
     localStream.current = stream
     if (localVideoRef.current) localVideoRef.current.srcObject = stream
 
@@ -276,12 +351,15 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       cleanup()
       setState(initialState)
     }
-  }, [userId, userName, userAvatar, createPeerConnection, sendToRemote, cleanup])
+  }, [userId, userName, userAvatar, createPeerConnection, sendToRemote, cleanup, unlockAudio])
 
   // Accept incoming call
   const acceptCall = useCallback(async () => {
     const remoteId = remoteUserIdRef.current
     if (!pendingOffer.current || !remoteId) return
+
+    // Unlock audio during this user gesture (accept button click)
+    unlockAudio()
 
     try {
       const pc = createPeerConnection(remoteId)
@@ -305,6 +383,11 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
         answer: pc.localDescription?.toJSON(),
       })
 
+      // Re-attach remote stream in case ontrack already fired
+      if (remoteStreamRef.current && remoteStreamRef.current.getTracks().length > 0) {
+        attachRemoteStream(remoteStreamRef.current)
+      }
+
       setState(prev => ({ ...prev, status: 'connected' }))
       startDurationTimer()
     } catch (err: any) {
@@ -316,7 +399,7 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       }
       rejectCall()
     }
-  }, [state.type, createPeerConnection, sendToRemote, startDurationTimer])
+  }, [state.type, createPeerConnection, sendToRemote, startDurationTimer, unlockAudio, attachRemoteStream])
 
   // Reject incoming call
   const rejectCall = useCallback(() => {
@@ -334,7 +417,6 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     if (remoteId) {
       sendToRemote(remoteId, 'call-end', {})
     }
-    // Log only once (whoever clicks End Call)
     if (!hasLoggedRef.current && callInfoRef.current && onCallLogRef.current) {
       hasLoggedRef.current = true
       const info = callInfoRef.current
