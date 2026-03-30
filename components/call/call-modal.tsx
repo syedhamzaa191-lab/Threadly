@@ -11,6 +11,7 @@ interface CallModalProps {
   remoteAvatar: string | null
   isMuted: boolean
   isVideoOff: boolean
+  isSpeaker: boolean
   duration: number
   iceState: string
   hasRemoteTrack: boolean
@@ -19,6 +20,7 @@ interface CallModalProps {
   onEndCall: () => void
   onToggleMute: () => void
   onToggleVideo: () => void
+  onToggleSpeaker: () => void
 }
 
 function formatDuration(seconds: number) {
@@ -34,6 +36,7 @@ export function CallModal({
   remoteAvatar,
   isMuted,
   isVideoOff,
+  isSpeaker,
   duration,
   iceState,
   hasRemoteTrack,
@@ -42,6 +45,7 @@ export function CallModal({
   onEndCall,
   onToggleMute,
   onToggleVideo,
+  onToggleSpeaker,
 }: CallModalProps) {
   if (status === 'idle') return null
 
@@ -80,6 +84,7 @@ export function CallModal({
             {/* Controls */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3">
               <CallButton active={isMuted} onClick={onToggleMute} icon={isMuted ? <MicOffIcon /> : <MicIcon />} label={isMuted ? 'Unmute' : 'Mute'} />
+              <CallButton active={isSpeaker} onClick={onToggleSpeaker} icon={<SpeakerIcon on={isSpeaker} />} label={isSpeaker ? 'Earpiece' : 'Speaker'} />
               <CallButton active={isVideoOff} onClick={onToggleVideo} icon={isVideoOff ? <VideoOffIcon /> : <VideoIcon />} label={isVideoOff ? 'Camera On' : 'Camera Off'} />
               <button onClick={onEndCall} className="w-14 h-14 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white transition-colors shadow-lg" title="End Call">
                 <EndCallIcon />
@@ -113,15 +118,12 @@ export function CallModal({
               {status === 'ended' && 'Call Ended'}
             </p>
 
-            {/* Debug info - remove after fixing */}
-            <div className="text-[10px] text-white/20 mb-6 space-y-0.5">
-              <p>ICE: {iceState || 'none'}</p>
-              <p>Track: {hasRemoteTrack ? 'yes' : 'no'}</p>
-            </div>
+            <div className="mb-6" />
 
             {status === 'connected' && (
               <div className="flex items-center justify-center gap-3 mb-2">
                 <CallButton active={isMuted} onClick={onToggleMute} icon={isMuted ? <MicOffIcon /> : <MicIcon />} label={isMuted ? 'Unmute' : 'Mute'} />
+                <CallButton active={isSpeaker} onClick={onToggleSpeaker} icon={<SpeakerIcon on={isSpeaker} />} label={isSpeaker ? 'Earpiece' : 'Speaker'} />
                 {type === 'video' && (
                   <CallButton active={isVideoOff} onClick={onToggleVideo} icon={isVideoOff ? <VideoOffIcon /> : <VideoIcon />} label={isVideoOff ? 'Camera On' : 'Camera Off'} />
                 )}
@@ -168,6 +170,14 @@ function VideoIcon() {
 
 function VideoOffIcon() {
   return <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+}
+
+function SpeakerIcon({ on }: { on: boolean }) {
+  return on ? (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+  ) : (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+  )
 }
 
 function EndCallIcon() {

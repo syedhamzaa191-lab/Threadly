@@ -74,7 +74,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   const {
     callState, localVideoRef, remoteVideoRef,
     startCall, acceptCall, rejectCall, endCall,
-    toggleMute, toggleVideo,
+    toggleMute, toggleVideo, toggleSpeaker,
   } = useCall(user?.id, displayNameForCall, displayAvatarForCall, handleCallLog)
   const { unread, newMessageAlert, dismissAlert } = useUnread(workspaceId, currentActiveId, user?.id)
 
@@ -243,6 +243,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
           remoteAvatar={callState.remoteUserAvatar}
           isMuted={callState.isMuted}
           isVideoOff={callState.isVideoOff}
+          isSpeaker={callState.isSpeaker}
           duration={callState.duration}
           iceState={callState.iceState}
           hasRemoteTrack={callState.hasRemoteTrack}
@@ -251,6 +252,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
           onEndCall={endCall}
           onToggleMute={toggleMute}
           onToggleVideo={toggleVideo}
+          onToggleSpeaker={toggleSpeaker}
         />
       )}
 

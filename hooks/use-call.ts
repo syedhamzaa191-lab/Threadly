@@ -14,6 +14,7 @@ interface CallState {
   remoteUserAvatar: string | null
   isMuted: boolean
   isVideoOff: boolean
+  isSpeaker: boolean
   duration: number
   iceState: string
   hasRemoteTrack: boolean
@@ -22,7 +23,7 @@ interface CallState {
 const initialState: CallState = {
   status: 'idle', type: 'voice',
   remoteUserId: null, remoteUserName: null, remoteUserAvatar: null,
-  isMuted: false, isVideoOff: false, duration: 0,
+  isMuted: false, isVideoOff: false, isSpeaker: false, duration: 0,
   iceState: '', hasRemoteTrack: false,
 }
 
@@ -89,16 +90,26 @@ export function useCall(
     ael.current.play().catch(() => {})
   }, [])
 
+  const remoteStream = useRef<MediaStream | null>(null)
+  const speakerOn = useRef(false)
+
   const playRemote = useCallback((stream: MediaStream) => {
+    remoteStream.current = stream
     if (remoteVideoRef.current) { remoteVideoRef.current.srcObject = stream; remoteVideoRef.current.play().catch(() => {}) }
-    try {
-      const c = actx.current
-      if (c && c.state !== 'closed') {
-        if (asrc.current) try { asrc.current.disconnect() } catch {}
-        const s = c.createMediaStreamSource(stream); s.connect(c.destination); asrc.current = s
-      }
-    } catch {}
+
+    // Always set audio element (earpiece on mobile)
     if (ael.current) { ael.current.srcObject = stream; ael.current.play().catch(() => {}) }
+
+    // Connect Web Audio API only if speaker mode is on
+    if (speakerOn.current) {
+      try {
+        const c = actx.current
+        if (c && c.state !== 'closed') {
+          if (asrc.current) try { asrc.current.disconnect() } catch {}
+          const s = c.createMediaStreamSource(stream); s.connect(c.destination); asrc.current = s
+        }
+      } catch {}
+    }
   }, [])
 
   useEffect(() => { remoteRef.current = state.remoteUserId }, [state.remoteUserId])
@@ -173,6 +184,12 @@ export function useCall(
       logged.current = false
       infoRef.current = { type: payload.type, name: payload.callerName }
       setState({ ...initialState, status: 'ringing', type: payload.type, remoteUserId: payload.callerId, remoteUserName: payload.callerName, remoteUserAvatar: payload.callerAvatar })
+    })
+    // Listen for reject from receiver (sent before they join room)
+    ch.on('broadcast', { event: 'incoming-reject' }, () => {
+      cleanup()
+      setState(p => ({ ...p, status: 'ended' }))
+      setTimeout(() => setState(initialState), 2000)
     })
     ch.subscribe()
     return () => { sb.current.removeChannel(ch) }
@@ -274,7 +291,18 @@ export function useCall(
     }
   }, [userId, state.type, makePc, joinRoom, initAudio])
 
-  const rejectCall = useCallback(() => {
+  const rejectCall = useCallback(async () => {
+    // Receiver hasn't joined room yet, so send reject via caller's notify channel
+    const callerId = remoteRef.current
+    if (callerId) {
+      try {
+        const ch = sb.current.channel(`call-notify:${callerId}`, { config: { broadcast: { self: false } } })
+        await new Promise<void>(r => ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') r() }))
+        await ch.send({ type: 'broadcast', event: 'incoming-reject', payload: {} })
+        setTimeout(() => sb.current.removeChannel(ch), 2000)
+      } catch {}
+    }
+    // Also try room channel if already joined
     roomCh.current?.send({ type: 'broadcast', event: 'reject', payload: {} })
     cleanup(); setState(initialState)
   }, [cleanup])
@@ -289,8 +317,33 @@ export function useCall(
 
   endRef.current = endCall
 
+  const toggleSpeaker = useCallback(() => {
+    speakerOn.current = !speakerOn.current
+    const on = speakerOn.current
+    setState(p => ({ ...p, isSpeaker: on }))
+
+    if (on) {
+      // Speaker ON — route audio through Web Audio API (loudspeaker)
+      try {
+        const c = actx.current
+        const stream = remoteStream.current
+        if (c && c.state !== 'closed' && stream) {
+          if (asrc.current) try { asrc.current.disconnect() } catch {}
+          const s = c.createMediaStreamSource(stream); s.connect(c.destination); asrc.current = s
+        }
+      } catch {}
+      // Mute audio element to avoid double audio
+      if (ael.current) ael.current.volume = 0
+    } else {
+      // Speaker OFF — route audio through audio element (earpiece)
+      if (asrc.current) try { asrc.current.disconnect() } catch {}
+      asrc.current = null
+      if (ael.current) ael.current.volume = 1
+    }
+  }, [])
+
   const toggleMute = useCallback(() => { const t = localStream.current?.getAudioTracks()[0]; if (t) { t.enabled = !t.enabled; setState(p => ({ ...p, isMuted: !t.enabled })) } }, [])
   const toggleVideo = useCallback(() => { const t = localStream.current?.getVideoTracks()[0]; if (t) { t.enabled = !t.enabled; setState(p => ({ ...p, isVideoOff: !t.enabled })) } }, [])
 
-  return { callState: state, localVideoRef, remoteVideoRef, startCall, acceptCall, rejectCall, endCall, toggleMute, toggleVideo }
+  return { callState: state, localVideoRef, remoteVideoRef, startCall, acceptCall, rejectCall, endCall, toggleMute, toggleVideo, toggleSpeaker }
 }
