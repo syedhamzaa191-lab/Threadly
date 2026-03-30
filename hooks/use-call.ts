@@ -33,25 +33,14 @@ let cacheTime = 0
 async function getIce(): Promise<RTCIceServer[]> {
   if (cachedIce && Date.now() - cacheTime < 300000) return cachedIce
   try {
-    // Try server-side route first (no CORS issues)
     const r = await fetch('/api/turn')
-    if (r.ok) {
-      const d = await r.json()
-      cachedIce = d.iceServers
-      cacheTime = Date.now()
-      return cachedIce!
-    }
-    throw new Error('API failed')
+    if (!r.ok) throw new Error()
+    const d = await r.json()
+    cachedIce = d.iceServers
+    cacheTime = Date.now()
+    return cachedIce!
   } catch {
-    try {
-      // Fallback: direct Metered API
-      const r = await fetch('https://mobileapp.metered.live/api/v1/turn/credentials?apiKey=7d563a91b37d968d6fcc8d3a7622bdf4f964')
-      cachedIce = await r.json()
-      cacheTime = Date.now()
-      return cachedIce!
-    } catch {
-      return [{ urls: 'stun:stun.l.google.com:19302' }]
-    }
+    return [{ urls: 'stun:stun.l.google.com:19302' }]
   }
 }
 
