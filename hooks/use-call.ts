@@ -20,29 +20,22 @@ interface CallState {
   hasRemoteTrack: boolean
 }
 
-const ICE_SERVERS = [
+const FALLBACK_ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:stun3.l.google.com:19302' },
-  { urls: 'stun:stun4.l.google.com:19302' },
-  // Free TURN servers
-  {
-    urls: 'turn:openrelay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
 ]
+
+// Fetch TURN credentials from our API (which gets them from Metered.ca)
+async function fetchIceServers(): Promise<RTCIceServer[]> {
+  try {
+    const res = await fetch('/api/turn')
+    if (!res.ok) throw new Error('Failed')
+    const data = await res.json()
+    return data.iceServers
+  } catch {
+    return FALLBACK_ICE_SERVERS
+  }
+}
 
 const initialState: CallState = {
   status: 'idle',
@@ -225,8 +218,8 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
 
   const endCallRef = useRef<() => void>(() => {})
 
-  const createPeerConnection = useCallback((remoteId: string) => {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
+  const createPeerConnection = useCallback((remoteId: string, iceServers: RTCIceServer[]) => {
+    const pc = new RTCPeerConnection({ iceServers })
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
@@ -378,7 +371,9 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     })
 
     try {
-      const pc = createPeerConnection(remoteUserId)
+      const iceServers = await fetchIceServers()
+      console.log('[Call] ICE servers:', iceServers.length, 'servers')
+      const pc = createPeerConnection(remoteUserId, iceServers)
       peerConnection.current = pc
       stream.getTracks().forEach(track => pc.addTrack(track, stream))
 
@@ -421,7 +416,9 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     initAudio()
 
     try {
-      const pc = createPeerConnection(remoteId)
+      const iceServers = await fetchIceServers()
+      console.log('[Call] ICE servers:', iceServers.length, 'servers')
+      const pc = createPeerConnection(remoteId, iceServers)
       peerConnection.current = pc
 
       await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer.current))
