@@ -76,16 +76,16 @@ export function useCall(
   const ael = useRef<HTMLAudioElement | null>(null)
 
   const initAudio = useCallback(() => {
-    try {
-      if (!actx.current || actx.current.state === 'closed')
-        actx.current = new (window.AudioContext || (window as any).webkitAudioContext)()
-      actx.current.resume().catch(() => {})
-    } catch {}
+    // Only create audio element for earpiece — NO AudioContext here (that goes to speaker)
     if (!ael.current) {
       const a = document.createElement('audio')
-      a.autoplay = true; a.setAttribute('playsinline', 'true'); a.volume = 1
-      document.body.appendChild(a); ael.current = a
+      a.autoplay = true
+      a.setAttribute('playsinline', 'true')
+      a.volume = 1
+      document.body.appendChild(a)
+      ael.current = a
     }
+    // Unlock audio playback on mobile with silent play
     ael.current.srcObject = new MediaStream()
     ael.current.play().catch(() => {})
   }, [])
@@ -95,20 +95,34 @@ export function useCall(
 
   const playRemote = useCallback((stream: MediaStream) => {
     remoteStream.current = stream
-    if (remoteVideoRef.current) { remoteVideoRef.current.srcObject = stream; remoteVideoRef.current.play().catch(() => {}) }
 
-    // Always set audio element (earpiece on mobile)
-    if (ael.current) { ael.current.srcObject = stream; ael.current.play().catch(() => {}) }
+    // Video element — only set srcObject for video calls (don't play audio through it)
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = stream
+      remoteVideoRef.current.muted = true // mute video element, audio goes through ael or actx
+      remoteVideoRef.current.play().catch(() => {})
+    }
 
-    // Connect Web Audio API only if speaker mode is on
     if (speakerOn.current) {
+      // Speaker ON — use Web Audio API (loudspeaker)
+      if (ael.current) ael.current.volume = 0
       try {
-        const c = actx.current
-        if (c && c.state !== 'closed') {
-          if (asrc.current) try { asrc.current.disconnect() } catch {}
-          const s = c.createMediaStreamSource(stream); s.connect(c.destination); asrc.current = s
+        if (!actx.current || actx.current.state === 'closed') {
+          actx.current = new (window.AudioContext || (window as any).webkitAudioContext)()
         }
+        actx.current.resume().catch(() => {})
+        if (asrc.current) try { asrc.current.disconnect() } catch {}
+        const s = actx.current.createMediaStreamSource(stream)
+        s.connect(actx.current.destination)
+        asrc.current = s
       } catch {}
+    } else {
+      // Speaker OFF (default) — use audio element only (earpiece on mobile)
+      if (ael.current) {
+        ael.current.volume = 1
+        ael.current.srcObject = stream
+        ael.current.play().catch(() => {})
+      }
     }
   }, [])
 
@@ -321,24 +335,35 @@ export function useCall(
     speakerOn.current = !speakerOn.current
     const on = speakerOn.current
     setState(p => ({ ...p, isSpeaker: on }))
+    const stream = remoteStream.current
 
     if (on) {
-      // Speaker ON — route audio through Web Audio API (loudspeaker)
+      // Speaker ON — create AudioContext and route through loudspeaker
+      if (ael.current) ael.current.volume = 0
       try {
-        const c = actx.current
-        const stream = remoteStream.current
-        if (c && c.state !== 'closed' && stream) {
-          if (asrc.current) try { asrc.current.disconnect() } catch {}
-          const s = c.createMediaStreamSource(stream); s.connect(c.destination); asrc.current = s
+        if (!actx.current || actx.current.state === 'closed') {
+          actx.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+        }
+        actx.current.resume().catch(() => {})
+        if (asrc.current) try { asrc.current.disconnect() } catch {}
+        if (stream) {
+          const s = actx.current.createMediaStreamSource(stream)
+          s.connect(actx.current.destination)
+          asrc.current = s
         }
       } catch {}
-      // Mute audio element to avoid double audio
-      if (ael.current) ael.current.volume = 0
     } else {
-      // Speaker OFF — route audio through audio element (earpiece)
+      // Speaker OFF — disconnect AudioContext, use audio element (earpiece)
       if (asrc.current) try { asrc.current.disconnect() } catch {}
       asrc.current = null
-      if (ael.current) ael.current.volume = 1
+      if (actx.current && actx.current.state !== 'closed') {
+        actx.current.close().catch(() => {})
+        actx.current = null
+      }
+      if (ael.current) {
+        ael.current.volume = 1
+        if (stream) { ael.current.srcObject = stream; ael.current.play().catch(() => {}) }
+      }
     }
   }, [])
 
