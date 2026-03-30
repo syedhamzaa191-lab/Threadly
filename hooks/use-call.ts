@@ -19,44 +19,26 @@ interface CallState {
   hasRemoteTrack: boolean
 }
 
-const FALLBACK_ICE: RTCIceServer[] = [
-  { urls: 'stun:stun.l.google.com:19302' },
-]
-
-async function fetchIceServers(): Promise<RTCIceServer[]> {
-  try {
-    const r = await fetch('/api/turn')
-    if (!r.ok) throw new Error()
-    const d = await r.json()
-    return d.iceServers
-  } catch {
-    return FALLBACK_ICE
-  }
-}
-
-// Wait until all ICE candidates are embedded in the local description
-function waitForIceGathering(pc: RTCPeerConnection, timeout = 10000): Promise<void> {
-  if (pc.iceGatheringState === 'complete') return Promise.resolve()
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, timeout)
-    pc.addEventListener('icegatheringstatechange', () => {
-      if (pc.iceGatheringState === 'complete') {
-        clearTimeout(timer)
-        resolve()
-      }
-    })
-  })
-}
-
-function makeRoomId(a: string, b: string) {
-  return a < b ? `call-room:${a}:${b}` : `call-room:${b}:${a}`
-}
-
 const initialState: CallState = {
   status: 'idle', type: 'voice',
   remoteUserId: null, remoteUserName: null, remoteUserAvatar: null,
   isMuted: false, isVideoOff: false, duration: 0,
   iceState: '', hasRemoteTrack: false,
+}
+
+// Fetch TURN credentials from Metered.ca
+async function getIceServers(): Promise<RTCIceServer[]> {
+  try {
+    const res = await fetch('https://mobileapp.metered.live/api/v1/turn/credentials?apiKey=7d563a91b37d968d6fcc8d3a7622bdf4f964')
+    const servers = await res.json()
+    return servers
+  } catch {
+    return [{ urls: 'stun:stun.l.google.com:19302' }]
+  }
+}
+
+function roomId(a: string, b: string) {
+  return a < b ? `call:${a}:${b}` : `call:${b}:${a}`
 }
 
 export function useCall(
@@ -66,22 +48,23 @@ export function useCall(
   onCallLog?: (type: CallType, duration: number, remoteName: string) => void,
 ) {
   const [state, setState] = useState<CallState>(initialState)
-  const pc = useRef<RTCPeerConnection | null>(null)
+  const pcRef = useRef<RTCPeerConnection | null>(null)
   const localStream = useRef<MediaStream | null>(null)
   const localVideoRef = useRef<HTMLVideoElement | null>(null)
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null)
-  const durationInterval = useRef<NodeJS.Timeout | null>(null)
-  const durationRef = useRef(0)
-  const supabase = useRef(createClient())
-  const pendingOffer = useRef<RTCSessionDescriptionInit | null>(null)
-  const roomRef = useRef<any>(null)
-  const notifyRef = useRef<any>(null)
-  const remoteIdRef = useRef<string | null>(null)
-  const logRef = useRef(onCallLog)
-  logRef.current = onCallLog
-  const loggedRef = useRef(false)
-  const infoRef = useRef<{ type: CallType; name: string } | null>(null)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const durRef = useRef(0)
+  const sb = useRef(createClient())
+  const offer = useRef<RTCSessionDescriptionInit | null>(null)
+  const roomCh = useRef<any>(null)
+  const notifyCh = useRef<any>(null)
+  const remoteRef = useRef<string | null>(null)
+  const logCb = useRef(onCallLog); logCb.current = onCallLog
+  const logged = useRef(false)
+  const info = useRef<{ type: CallType; name: string } | null>(null)
   const endRef = useRef<() => void>(() => {})
+  const queuedCandidates = useRef<RTCIceCandidateInit[]>([])
+  const hasRemoteDesc = useRef(false)
 
   // Audio
   const audioCtx = useRef<AudioContext | null>(null)
@@ -90,32 +73,25 @@ export function useCall(
 
   const initAudio = useCallback(() => {
     try {
-      if (!audioCtx.current || audioCtx.current.state === 'closed') {
-        const C = window.AudioContext || (window as any).webkitAudioContext
-        audioCtx.current = new C()
-      }
+      if (!audioCtx.current || audioCtx.current.state === 'closed')
+        audioCtx.current = new (window.AudioContext || (window as any).webkitAudioContext)()
       audioCtx.current.resume().catch(() => {})
     } catch {}
     if (!audioEl.current) {
       const a = document.createElement('audio')
-      a.autoplay = true
-      a.setAttribute('playsinline', 'true')
-      a.volume = 1
+      a.autoplay = true; a.setAttribute('playsinline', 'true'); a.volume = 1
       document.body.appendChild(a)
       audioEl.current = a
     }
-    const a = audioEl.current
-    a.srcObject = new MediaStream()
-    a.play().catch(() => {})
+    audioEl.current.srcObject = new MediaStream()
+    audioEl.current.play().catch(() => {})
   }, [])
 
   const playRemote = useCallback((stream: MediaStream) => {
-    // Video element
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = stream
       remoteVideoRef.current.play().catch(() => {})
     }
-    // Web Audio API
     try {
       const ctx = audioCtx.current
       if (ctx && ctx.state !== 'closed') {
@@ -125,26 +101,26 @@ export function useCall(
         audioSrc.current = s
       }
     } catch {}
-    // Audio element
     if (audioEl.current) {
       audioEl.current.srcObject = stream
       audioEl.current.play().catch(() => {})
     }
   }, [])
 
-  useEffect(() => { remoteIdRef.current = state.remoteUserId }, [state.remoteUserId])
+  useEffect(() => { remoteRef.current = state.remoteUserId }, [state.remoteUserId])
 
+  // ── Cleanup ──
   const cleanup = useCallback(() => {
     localStream.current?.getTracks().forEach(t => t.stop())
     localStream.current = null
     if (audioSrc.current) try { audioSrc.current.disconnect() } catch {}
     audioSrc.current = null
     if (audioEl.current) { audioEl.current.pause(); audioEl.current.srcObject = null }
-    pc.current?.close()
-    pc.current = null
-    if (durationInterval.current) clearInterval(durationInterval.current)
-    durationInterval.current = null
-    if (roomRef.current) { supabase.current.removeChannel(roomRef.current); roomRef.current = null }
+    if (pcRef.current) { pcRef.current.close(); pcRef.current = null }
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    if (roomCh.current) { sb.current.removeChannel(roomCh.current); roomCh.current = null }
+    hasRemoteDesc.current = false
+    queuedCandidates.current = []
   }, [])
 
   useEffect(() => () => {
@@ -154,33 +130,52 @@ export function useCall(
   }, [])
 
   const startTimer = useCallback(() => {
-    if (durationInterval.current) clearInterval(durationInterval.current)
-    durationRef.current = 0
-    durationInterval.current = setInterval(() => {
-      durationRef.current += 1
-      setState(p => ({ ...p, duration: durationRef.current }))
+    if (timerRef.current) clearInterval(timerRef.current)
+    durRef.current = 0
+    timerRef.current = setInterval(() => {
+      durRef.current += 1
+      setState(p => ({ ...p, duration: durRef.current }))
     }, 1000)
   }, [])
 
-  // ── Join shared room channel ──
-  const joinRoom = useCallback((roomId: string): Promise<any> => {
-    if (roomRef.current) supabase.current.removeChannel(roomRef.current)
-    const ch = supabase.current.channel(roomId, { config: { broadcast: { self: false } } })
+  // ── Apply queued ICE candidates ──
+  const flushCandidates = useCallback(async () => {
+    const conn = pcRef.current
+    if (!conn) return
+    for (const c of queuedCandidates.current) {
+      try { await conn.addIceCandidate(new RTCIceCandidate(c)) } catch {}
+    }
+    queuedCandidates.current = []
+  }, [])
 
-    // Answer handler (caller receives this)
+  // ── Join room channel with signaling handlers ──
+  const joinRoom = useCallback((rid: string): Promise<any> => {
+    if (roomCh.current) sb.current.removeChannel(roomCh.current)
+    const ch = sb.current.channel(rid, { config: { broadcast: { self: false } } })
+
     ch.on('broadcast', { event: 'answer' }, async ({ payload }) => {
       console.log('[Call] Got answer')
-      if (!pc.current) return
-      await pc.current.setRemoteDescription(new RTCSessionDescription(payload.answer))
-      setState(p => ({ ...p, iceState: 'negotiating' }))
+      if (!pcRef.current) return
+      hasRemoteDesc.current = true
+      await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload.answer))
+      await flushCandidates()
     })
 
-    // End / reject
+    ch.on('broadcast', { event: 'ice' }, async ({ payload }) => {
+      if (!pcRef.current || !payload.candidate) return
+      if (hasRemoteDesc.current) {
+        try { await pcRef.current.addIceCandidate(new RTCIceCandidate(payload.candidate)) } catch {}
+      } else {
+        queuedCandidates.current.push(payload.candidate)
+      }
+    })
+
     ch.on('broadcast', { event: 'end' }, () => {
       cleanup()
       setState(p => ({ ...p, status: 'ended' }))
       setTimeout(() => setState(initialState), 2000)
     })
+
     ch.on('broadcast', { event: 'reject' }, () => {
       cleanup()
       setState(p => ({ ...p, status: 'ended' }))
@@ -189,19 +184,27 @@ export function useCall(
 
     return new Promise(resolve => {
       ch.subscribe((s: string) => {
-        if (s === 'SUBSCRIBED') { roomRef.current = ch; resolve(ch) }
+        if (s === 'SUBSCRIBED') { roomCh.current = ch; resolve(ch) }
       })
     })
-  }, [cleanup])
+  }, [cleanup, flushCandidates])
 
-  // ── Create RTCPeerConnection ──
+  // ── Create peer connection ──
   const makePc = useCallback((iceServers: RTCIceServer[]) => {
-    const conn = new RTCPeerConnection({ iceServers, iceTransportPolicy: 'relay' })
+    const conn = new RTCPeerConnection({ iceServers })
+
+    conn.onicecandidate = (e) => {
+      if (e.candidate && roomCh.current) {
+        roomCh.current.send({ type: 'broadcast', event: 'ice', payload: { candidate: e.candidate.toJSON() } })
+      }
+    }
+
     conn.ontrack = (e) => {
       console.log('[Call] ontrack', e.track.kind)
       setState(p => ({ ...p, hasRemoteTrack: true }))
       playRemote(e.streams[0] || new MediaStream([e.track]))
     }
+
     conn.oniceconnectionstatechange = () => {
       const s = conn.iceConnectionState
       console.log('[Call] ICE:', s)
@@ -214,31 +217,31 @@ export function useCall(
       }
       if (s === 'failed') endRef.current()
       if (s === 'disconnected') setTimeout(() => {
-        if (pc.current?.iceConnectionState === 'disconnected') endRef.current()
+        if (pcRef.current?.iceConnectionState === 'disconnected') endRef.current()
       }, 5000)
     }
+
     return conn
   }, [playRemote, startTimer])
 
-  // ── Listen for incoming calls on personal channel ──
+  // ── Listen for incoming calls ──
   useEffect(() => {
     if (!userId) return
-    const ch = supabase.current.channel(`call-notify:${userId}`, { config: { broadcast: { self: false } } })
+    const ch = sb.current.channel(`call-notify:${userId}`, { config: { broadcast: { self: false } } })
     ch.on('broadcast', { event: 'incoming' }, ({ payload }) => {
       console.log('[Call] Incoming from', payload.callerName)
-      pendingOffer.current = payload.offer
-      loggedRef.current = false
-      infoRef.current = { type: payload.type, name: payload.callerName }
+      offer.current = payload.offer
+      logged.current = false
+      info.current = { type: payload.type, name: payload.callerName }
       setState({
-        ...initialState,
-        status: 'ringing', type: payload.type,
+        ...initialState, status: 'ringing', type: payload.type,
         remoteUserId: payload.callerId,
         remoteUserName: payload.callerName,
         remoteUserAvatar: payload.callerAvatar,
       })
     })
-    ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') notifyRef.current = ch })
-    return () => { supabase.current.removeChannel(ch); notifyRef.current = null }
+    ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') notifyCh.current = ch })
+    return () => { sb.current.removeChannel(ch); notifyCh.current = null }
   }, [userId])
 
   // ── Start call ──
@@ -248,64 +251,48 @@ export function useCall(
     if (!userId) return
     initAudio()
 
-    // 1. Get media
     let stream: MediaStream
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' })
     } catch (err: any) {
-      alert(err?.name === 'NotAllowedError'
-        ? 'Microphone permission denied. Allow access and try again.'
-        : err?.name === 'NotFoundError'
-        ? 'No microphone found.' : 'Could not access mic/camera.')
+      alert(err?.name === 'NotAllowedError' ? 'Mic permission denied.' : err?.name === 'NotFoundError' ? 'No mic found.' : 'Cannot access mic.')
       return
     }
     localStream.current = stream
     if (localVideoRef.current) localVideoRef.current.srcObject = stream
 
-    loggedRef.current = false
-    infoRef.current = { type, name: remoteName }
+    logged.current = false
+    info.current = { type, name: remoteName }
     setState({ ...initialState, status: 'calling', type, remoteUserId, remoteUserName: remoteName, remoteUserAvatar: remoteAvatar })
 
     try {
-      // 2. Get TURN servers
-      const ice = await fetchIceServers()
-      console.log('[Call] ICE servers:', ice.length)
+      const iceServers = await getIceServers()
+      const rid = roomId(userId, remoteUserId)
+      const room = await joinRoom(rid)
 
-      // 3. Join room
-      const roomId = makeRoomId(userId, remoteUserId)
-      await joinRoom(roomId)
-
-      // 4. Create PC & offer
-      const conn = makePc(ice)
-      pc.current = conn
+      const conn = makePc(iceServers)
+      pcRef.current = conn
+      hasRemoteDesc.current = false
       stream.getTracks().forEach(t => conn.addTrack(t, stream))
-      const offer = await conn.createOffer()
-      await conn.setLocalDescription(offer)
 
-      // 5. Wait for ALL ICE candidates to be embedded in SDP
-      console.log('[Call] Gathering ICE candidates...')
-      await waitForIceGathering(conn)
-      console.log('[Call] ICE gathering complete')
+      const o = await conn.createOffer()
+      await conn.setLocalDescription(o)
 
-      // 6. Send complete offer (with all candidates) via receiver's notify channel
-      const notifyCh = supabase.current.channel(`call-notify:${remoteUserId}`, { config: { broadcast: { self: false } } })
-      await new Promise<void>(r => notifyCh.subscribe((s: string) => { if (s === 'SUBSCRIBED') r() }))
-      await notifyCh.send({
+      // Send offer via receiver's notify channel
+      const nch = sb.current.channel(`call-notify:${remoteUserId}`, { config: { broadcast: { self: false } } })
+      await new Promise<void>(r => nch.subscribe((s: string) => { if (s === 'SUBSCRIBED') r() }))
+      await nch.send({
         type: 'broadcast', event: 'incoming',
-        payload: {
-          offer: conn.localDescription!.toJSON(),
-          callerId: userId, callerName: userName, callerAvatar: userAvatar, type,
-        },
+        payload: { offer: conn.localDescription!.toJSON(), callerId: userId, callerName: userName, callerAvatar: userAvatar, type },
       })
-      console.log('[Call] Offer sent')
-      setTimeout(() => supabase.current.removeChannel(notifyCh), 3000)
+      setTimeout(() => sb.current.removeChannel(nch), 3000)
 
-      // 7. Auto-end after 45s if still calling (no answer)
+      // Auto-end after 45s if no answer
       setTimeout(() => {
         setState(p => {
           if (p.status === 'calling') {
+            room?.send({ type: 'broadcast', event: 'end', payload: {} })
             cleanup()
-            roomRef.current?.send({ type: 'broadcast', event: 'end', payload: {} })
             return { ...p, status: 'ended' }
           }
           return p
@@ -313,75 +300,66 @@ export function useCall(
         setTimeout(() => setState(p => p.status === 'ended' ? initialState : p), 2000)
       }, 45000)
     } catch (err) {
-      console.error('[Call] Failed:', err)
+      console.error('[Call] Start failed:', err)
       cleanup(); setState(initialState)
     }
   }, [userId, userName, userAvatar, makePc, joinRoom, cleanup, initAudio])
 
   // ── Accept call ──
   const acceptCall = useCallback(async () => {
-    const rid = remoteIdRef.current
-    if (!pendingOffer.current || !rid || !userId) return
+    const rid = remoteRef.current
+    if (!offer.current || !rid || !userId) return
     initAudio()
 
     try {
-      // 1. Get TURN servers
-      const ice = await fetchIceServers()
+      const iceServers = await getIceServers()
+      const room = await joinRoom(roomId(userId, rid))
 
-      // 2. Join room
-      const roomId = makeRoomId(userId, rid)
-      const roomCh = await joinRoom(roomId)
+      const conn = makePc(iceServers)
+      pcRef.current = conn
+      hasRemoteDesc.current = true
 
-      // 3. Create PC
-      const conn = makePc(ice)
-      pc.current = conn
+      await conn.setRemoteDescription(new RTCSessionDescription(offer.current))
+      offer.current = null
 
-      // 4. Set remote description (offer with all candidates)
-      await conn.setRemoteDescription(new RTCSessionDescription(pendingOffer.current))
-      pendingOffer.current = null
-
-      // 5. Get media
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: state.type === 'video' })
       localStream.current = stream
       if (localVideoRef.current) localVideoRef.current.srcObject = stream
       stream.getTracks().forEach(t => conn.addTrack(t, stream))
 
-      // 6. Create answer & wait for ICE gathering
-      const answer = await conn.createAnswer()
-      await conn.setLocalDescription(answer)
-      console.log('[Call] Gathering ICE candidates...')
-      await waitForIceGathering(conn)
-      console.log('[Call] ICE gathering complete, sending answer')
+      const ans = await conn.createAnswer()
+      await conn.setLocalDescription(ans)
 
-      // 7. Send complete answer via room channel
-      await roomCh.send({
+      await room.send({
         type: 'broadcast', event: 'answer',
         payload: { answer: conn.localDescription!.toJSON() },
       })
+      console.log('[Call] Answer sent')
 
-      setState(p => ({ ...p, status: 'calling', iceState: 'negotiating' }))
+      setState(p => ({ ...p, status: 'calling', iceState: 'connecting' }))
     } catch (err: any) {
       console.error('[Call] Accept failed:', err)
-      if (err?.name === 'NotAllowedError') alert('Mic permission denied.')
-      else if (err?.name === 'NotFoundError') alert('No mic found.')
+      alert(err?.name === 'NotAllowedError' ? 'Mic permission denied.' : 'Call failed.')
       rejectCall()
     }
   }, [userId, state.type, makePc, joinRoom, initAudio])
 
+  // ── Reject ──
   const rejectCall = useCallback(() => {
-    roomRef.current?.send({ type: 'broadcast', event: 'reject', payload: {} })
+    roomCh.current?.send({ type: 'broadcast', event: 'reject', payload: {} })
     cleanup(); setState(initialState)
   }, [cleanup])
 
+  // ── End call ──
   const endCall = useCallback(() => {
-    roomRef.current?.send({ type: 'broadcast', event: 'end', payload: {} })
-    if (!loggedRef.current && infoRef.current && logRef.current) {
-      loggedRef.current = true
-      logRef.current(infoRef.current.type, durationRef.current, infoRef.current.name)
+    roomCh.current?.send({ type: 'broadcast', event: 'end', payload: {} })
+    if (!logged.current && info.current && logCb.current) {
+      logged.current = true
+      logCb.current(info.current.type, durRef.current, info.current.name)
     }
-    setState(p => ({ ...p, status: 'ended' }))
     cleanup()
-    setTimeout(() => { setState(initialState); loggedRef.current = false; infoRef.current = null }, 2000)
+    setState(p => ({ ...p, status: 'ended' }))
+    setTimeout(() => { setState(initialState); logged.current = false; info.current = null }, 2000)
   }, [cleanup])
 
   endRef.current = endCall
