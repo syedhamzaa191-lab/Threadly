@@ -15,26 +15,30 @@ interface CallState {
   isMuted: boolean
   isVideoOff: boolean
   duration: number
-  // Debug info
   iceState: string
   hasRemoteTrack: boolean
 }
 
-const FALLBACK_ICE_SERVERS = [
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
 ]
 
-// Fetch TURN credentials from our API (which gets them from Metered.ca)
 async function fetchIceServers(): Promise<RTCIceServer[]> {
   try {
     const res = await fetch('/api/turn')
     if (!res.ok) throw new Error('Failed')
     const data = await res.json()
+    console.log('[Call] Got ICE servers:', data.iceServers?.length)
     return data.iceServers
   } catch {
     return FALLBACK_ICE_SERVERS
   }
+}
+
+// Create a deterministic room ID for two users
+function makeRoomId(userA: string, userB: string) {
+  return userA < userB ? `call-room:${userA}:${userB}` : `call-room:${userB}:${userA}`
 }
 
 const initialState: CallState = {
@@ -60,14 +64,17 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
   const durationInterval = useRef<NodeJS.Timeout | null>(null)
   const supabaseRef = useRef(createClient())
   const pendingOffer = useRef<RTCSessionDescriptionInit | null>(null)
-  const remoteChannelRef = useRef<any>(null)
+  const pendingCandidates = useRef<RTCIceCandidateInit[]>([])
   const remoteUserIdRef = useRef<string | null>(null)
   const onCallLogRef = useRef(onCallLog)
   onCallLogRef.current = onCallLog
   const hasLoggedRef = useRef(false)
   const callInfoRef = useRef<{ type: CallType; remoteName: string } | null>(null)
-  const isInitiatorRef = useRef(false)
   const durationRef = useRef(0)
+
+  // Channels
+  const notifyChannelRef = useRef<any>(null) // per-user channel for incoming call notification
+  const roomChannelRef = useRef<any>(null) // shared room channel for call signaling
 
   // Audio
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -75,7 +82,6 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
   const remoteAudioEl = useRef<HTMLAudioElement | null>(null)
   const remoteStreamRef = useRef<MediaStream | null>(null)
 
-  // Init audio on user gesture
   const initAudio = useCallback(() => {
     try {
       if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
@@ -83,9 +89,7 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
         audioContextRef.current = new AudioCtx()
       }
       audioContextRef.current.resume().catch(() => {})
-    } catch (e) {
-      console.warn('[Call] AudioContext error:', e)
-    }
+    } catch (e) { /* ignore */ }
 
     if (!remoteAudioEl.current) {
       const audio = document.createElement('audio')
@@ -95,7 +99,6 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       document.body.appendChild(audio)
       remoteAudioEl.current = audio
     }
-    // Unlock with silence
     const audio = remoteAudioEl.current
     if (audio) {
       audio.srcObject = new MediaStream()
@@ -104,17 +107,13 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     }
   }, [])
 
-  // Play remote stream
   const playRemoteAudio = useCallback((stream: MediaStream) => {
     remoteStreamRef.current = stream
-
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = stream
       const p = remoteVideoRef.current.play()
       if (p) p.catch(() => {})
     }
-
-    // Web Audio API
     try {
       const ctx = audioContextRef.current
       if (ctx && ctx.state !== 'closed') {
@@ -125,11 +124,7 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
         source.connect(ctx.destination)
         audioSourceRef.current = source
       }
-    } catch (e) {
-      console.warn('[Call] Web Audio error:', e)
-    }
-
-    // HTML Audio element
+    } catch (e) { /* ignore */ }
     const audio = remoteAudioEl.current
     if (audio) {
       audio.srcObject = stream
@@ -148,6 +143,7 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       localStream.current = null
     }
     remoteStreamRef.current = null
+    pendingCandidates.current = []
     if (audioSourceRef.current) {
       try { audioSourceRef.current.disconnect() } catch (_) {}
       audioSourceRef.current = null
@@ -164,11 +160,11 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       clearInterval(durationInterval.current)
       durationInterval.current = null
     }
-    if (remoteChannelRef.current) {
-      supabaseRef.current.removeChannel(remoteChannelRef.current)
-      remoteChannelRef.current = null
+    // Leave room channel
+    if (roomChannelRef.current) {
+      supabaseRef.current.removeChannel(roomChannelRef.current)
+      roomChannelRef.current = null
     }
-    pendingOffer.current = null
   }, [])
 
   useEffect(() => {
@@ -188,25 +184,6 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     }
   }, [])
 
-  const sendToRemote = useCallback(async (remoteId: string, event: string, payload: any) => {
-    const supabase = supabaseRef.current
-    if (!remoteChannelRef.current || remoteChannelRef.current._topic !== `call-signal:${remoteId}`) {
-      if (remoteChannelRef.current) {
-        supabase.removeChannel(remoteChannelRef.current)
-      }
-      const ch = supabase.channel(`call-signal:${remoteId}`, {
-        config: { broadcast: { self: false } },
-      })
-      await new Promise<void>((resolve) => {
-        ch.subscribe((status: string) => {
-          if (status === 'SUBSCRIBED') resolve()
-        })
-      })
-      remoteChannelRef.current = ch
-    }
-    await remoteChannelRef.current.send({ type: 'broadcast', event, payload })
-  }, [])
-
   const startDurationTimer = useCallback(() => {
     if (durationInterval.current) clearInterval(durationInterval.current)
     durationRef.current = 0
@@ -218,13 +195,16 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
 
   const endCallRef = useRef<() => void>(() => {})
 
-  const createPeerConnection = useCallback((remoteId: string, iceServers: RTCIceServer[]) => {
+  const createPeerConnection = useCallback((iceServers: RTCIceServer[], roomChannel: any) => {
     const pc = new RTCPeerConnection({ iceServers })
 
     pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        sendToRemote(remoteId, 'ice-candidate', {
-          candidate: event.candidate.toJSON(),
+      if (event.candidate && roomChannel) {
+        console.log('[WebRTC] Sending ICE candidate via room channel')
+        roomChannel.send({
+          type: 'broadcast',
+          event: 'ice-candidate',
+          payload: { candidate: event.candidate.toJSON(), senderId: userId },
         })
       }
     }
@@ -236,14 +216,12 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       playRemoteAudio(stream)
     }
 
-    // Use iceConnectionState — more reliable across browsers
     pc.oniceconnectionstatechange = () => {
       const iceState = pc.iceConnectionState
       console.log('[WebRTC] ICE state:', iceState)
       setState(prev => ({ ...prev, iceState }))
 
       if (iceState === 'connected' || iceState === 'completed') {
-        // NOW we are truly connected — start timer & set status
         setState(prev => {
           if (prev.status !== 'connected') {
             startDurationTimer()
@@ -251,15 +229,12 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
           }
           return { ...prev, iceState }
         })
-        // Re-play audio now that media can flow
         if (remoteStreamRef.current) {
           playRemoteAudio(remoteStreamRef.current)
         }
       } else if (iceState === 'failed') {
-        console.error('[WebRTC] ICE failed!')
         endCallRef.current()
       } else if (iceState === 'disconnected') {
-        // Give it a few seconds to recover
         setTimeout(() => {
           if (peerConnection.current && peerConnection.current.iceConnectionState === 'disconnected') {
             endCallRef.current()
@@ -273,9 +248,74 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     }
 
     return pc
-  }, [sendToRemote, playRemoteAudio, startDurationTimer])
+  }, [userId, playRemoteAudio, startDurationTimer])
 
-  // Listen on own channel
+  // Subscribe to shared room channel and set up signaling handlers
+  const joinRoomChannel = useCallback((roomId: string, role: 'caller' | 'receiver') => {
+    const supabase = supabaseRef.current
+
+    // Remove old room channel if any
+    if (roomChannelRef.current) {
+      supabase.removeChannel(roomChannelRef.current)
+    }
+
+    const ch = supabase.channel(roomId, {
+      config: { broadcast: { self: false } },
+    })
+
+    ch.on('broadcast', { event: 'call-answer' }, async ({ payload }) => {
+      console.log('[Signal] Received answer via room channel')
+      if (peerConnection.current) {
+        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(payload.answer))
+        setState(prev => ({ ...prev, iceState: 'checking' }))
+        // Add any queued ICE candidates
+        for (const c of pendingCandidates.current) {
+          try {
+            await peerConnection.current.addIceCandidate(new RTCIceCandidate(c))
+          } catch (e) { /* ignore */ }
+        }
+        pendingCandidates.current = []
+      }
+    })
+
+    ch.on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
+      if (payload.senderId === userId) return // ignore own
+      if (peerConnection.current) {
+        if (peerConnection.current.remoteDescription) {
+          try {
+            await peerConnection.current.addIceCandidate(new RTCIceCandidate(payload.candidate))
+          } catch (e) { /* ignore */ }
+        } else {
+          // Queue candidate until remote description is set
+          pendingCandidates.current.push(payload.candidate)
+        }
+      }
+    })
+
+    ch.on('broadcast', { event: 'call-end' }, () => {
+      cleanup()
+      setState(prev => ({ ...prev, status: 'ended' }))
+      setTimeout(() => setState(initialState), 2000)
+    })
+
+    ch.on('broadcast', { event: 'call-reject' }, () => {
+      cleanup()
+      setState(prev => ({ ...prev, status: 'ended' }))
+      setTimeout(() => setState(initialState), 2000)
+    })
+
+    return new Promise<any>((resolve) => {
+      ch.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Signal] Joined room channel:', roomId)
+          roomChannelRef.current = ch
+          resolve(ch)
+        }
+      })
+    })
+  }, [userId, cleanup])
+
+  // Listen on personal channel for incoming call notifications ONLY
   useEffect(() => {
     if (!userId) return
 
@@ -286,6 +326,7 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
 
     myChannel
       .on('broadcast', { event: 'call-offer' }, async ({ payload }) => {
+        console.log('[Signal] Received call offer from:', payload.callerName)
         pendingOffer.current = payload.offer
         hasLoggedRef.current = false
         callInfoRef.current = { type: payload.type, remoteName: payload.callerName }
@@ -298,34 +339,45 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
           remoteUserAvatar: payload.callerAvatar,
         })
       })
-      .on('broadcast', { event: 'call-answer' }, async ({ payload }) => {
-        if (peerConnection.current) {
-          await peerConnection.current.setRemoteDescription(new RTCSessionDescription(payload.answer))
-          // DON'T set connected here — wait for ICE to actually connect
-          setState(prev => ({ ...prev, iceState: 'checking' }))
+      .subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Signal] Listening on personal channel:', `call-signal:${userId}`)
+          notifyChannelRef.current = myChannel
         }
       })
-      .on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
-        if (peerConnection.current && payload.candidate) {
-          try {
-            await peerConnection.current.addIceCandidate(new RTCIceCandidate(payload.candidate))
-          } catch (e) { /* ignore */ }
-        }
-      })
-      .on('broadcast', { event: 'call-end' }, () => {
-        cleanup()
-        setState(prev => ({ ...prev, status: 'ended' }))
-        setTimeout(() => setState(initialState), 2000)
-      })
-      .on('broadcast', { event: 'call-reject' }, () => {
-        cleanup()
-        setState(prev => ({ ...prev, status: 'ended' }))
-        setTimeout(() => setState(initialState), 2000)
-      })
-      .subscribe()
 
-    return () => { supabase.removeChannel(myChannel) }
-  }, [userId, cleanup, startDurationTimer])
+    return () => {
+      supabase.removeChannel(myChannel)
+      notifyChannelRef.current = null
+    }
+  }, [userId])
+
+  // Send offer via receiver's personal channel
+  const sendOffer = useCallback(async (receiverId: string, offer: RTCSessionDescriptionInit, type: CallType) => {
+    const supabase = supabaseRef.current
+    const ch = supabase.channel(`call-signal:${receiverId}`, {
+      config: { broadcast: { self: false } },
+    })
+    await new Promise<void>((resolve) => {
+      ch.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') resolve()
+      })
+    })
+    await ch.send({
+      type: 'broadcast',
+      event: 'call-offer',
+      payload: {
+        offer,
+        callerId: userId,
+        callerName: userName,
+        callerAvatar: userAvatar,
+        type,
+      },
+    })
+    console.log('[Signal] Offer sent to:', receiverId)
+    // Cleanup this temp channel after sending
+    setTimeout(() => supabase.removeChannel(ch), 2000)
+  }, [userId, userName, userAvatar])
 
   // Start a call
   const startCall = useCallback(async (
@@ -359,7 +411,6 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     if (localVideoRef.current) localVideoRef.current.srcObject = stream
 
     hasLoggedRef.current = false
-    isInitiatorRef.current = true
     callInfoRef.current = { type, remoteName: remoteUserName }
     setState({
       ...initialState,
@@ -371,29 +422,32 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     })
 
     try {
+      // 1. Fetch TURN credentials
       const iceServers = await fetchIceServers()
-      console.log('[Call] ICE servers:', iceServers.length, 'servers')
-      const pc = createPeerConnection(remoteUserId, iceServers)
+
+      // 2. Join shared room channel FIRST
+      const roomId = makeRoomId(userId, remoteUserId)
+      const roomCh = await joinRoomChannel(roomId, 'caller')
+
+      // 3. Create peer connection (ICE candidates go via room channel)
+      const pc = createPeerConnection(iceServers, roomCh)
       peerConnection.current = pc
       stream.getTracks().forEach(track => pc.addTrack(track, stream))
 
+      // 4. Create and send offer
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
 
-      await sendToRemote(remoteUserId, 'call-offer', {
-        offer: pc.localDescription?.toJSON(),
-        callerId: userId,
-        callerName: userName,
-        callerAvatar: userAvatar,
-        type,
-      })
+      await sendOffer(remoteUserId, pc.localDescription!.toJSON(), type)
 
       // Auto-end if no answer in 30s
       setTimeout(() => {
         setState(prev => {
           if (prev.status === 'calling') {
             cleanup()
-            sendToRemote(remoteUserId, 'call-end', {})
+            if (roomChannelRef.current) {
+              roomChannelRef.current.send({ type: 'broadcast', event: 'call-end', payload: {} })
+            }
             return { ...prev, status: 'ended' }
           }
           return prev
@@ -407,23 +461,31 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       cleanup()
       setState(initialState)
     }
-  }, [userId, userName, userAvatar, createPeerConnection, sendToRemote, cleanup, initAudio])
+  }, [userId, userName, userAvatar, createPeerConnection, sendOffer, cleanup, initAudio, joinRoomChannel])
 
   // Accept incoming call
   const acceptCall = useCallback(async () => {
     const remoteId = remoteUserIdRef.current
-    if (!pendingOffer.current || !remoteId) return
+    if (!pendingOffer.current || !remoteId || !userId) return
     initAudio()
 
     try {
+      // 1. Fetch TURN credentials
       const iceServers = await fetchIceServers()
-      console.log('[Call] ICE servers:', iceServers.length, 'servers')
-      const pc = createPeerConnection(remoteId, iceServers)
+
+      // 2. Join shared room channel
+      const roomId = makeRoomId(userId, remoteId)
+      const roomCh = await joinRoomChannel(roomId, 'receiver')
+
+      // 3. Create peer connection
+      const pc = createPeerConnection(iceServers, roomCh)
       peerConnection.current = pc
 
+      // 4. Set remote description (offer)
       await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer.current))
       pendingOffer.current = null
 
+      // 5. Get local media
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: state.type === 'video',
@@ -432,15 +494,17 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       if (localVideoRef.current) localVideoRef.current.srcObject = stream
       stream.getTracks().forEach(track => pc.addTrack(track, stream))
 
+      // 6. Create and send answer via room channel
       const answer = await pc.createAnswer()
       await pc.setLocalDescription(answer)
 
-      await sendToRemote(remoteId, 'call-answer', {
-        answer: pc.localDescription?.toJSON(),
+      console.log('[Signal] Sending answer via room channel')
+      await roomCh.send({
+        type: 'broadcast',
+        event: 'call-answer',
+        payload: { answer: pc.localDescription!.toJSON() },
       })
 
-      // DON'T set connected here — wait for ICE
-      // Show "calling" state while ICE negotiates
       setState(prev => ({ ...prev, status: 'calling', iceState: 'checking' }))
     } catch (err: any) {
       console.error('Failed to accept call:', err)
@@ -451,18 +515,21 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       }
       rejectCall()
     }
-  }, [state.type, createPeerConnection, sendToRemote, initAudio])
+  }, [userId, state.type, createPeerConnection, initAudio, joinRoomChannel])
 
   const rejectCall = useCallback(() => {
     const remoteId = remoteUserIdRef.current
-    if (remoteId) sendToRemote(remoteId, 'call-reject', {})
+    if (remoteId && roomChannelRef.current) {
+      roomChannelRef.current.send({ type: 'broadcast', event: 'call-reject', payload: {} })
+    }
     cleanup()
     setState(initialState)
-  }, [sendToRemote, cleanup])
+  }, [cleanup])
 
   const endCall = useCallback(() => {
-    const remoteId = remoteUserIdRef.current
-    if (remoteId) sendToRemote(remoteId, 'call-end', {})
+    if (roomChannelRef.current) {
+      roomChannelRef.current.send({ type: 'broadcast', event: 'call-end', payload: {} })
+    }
     if (!hasLoggedRef.current && callInfoRef.current && onCallLogRef.current) {
       hasLoggedRef.current = true
       const info = callInfoRef.current
@@ -473,10 +540,9 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     setTimeout(() => {
       setState(initialState)
       hasLoggedRef.current = false
-      isInitiatorRef.current = false
       callInfoRef.current = null
     }, 2000)
-  }, [sendToRemote, cleanup])
+  }, [cleanup])
 
   endCallRef.current = endCall
 
