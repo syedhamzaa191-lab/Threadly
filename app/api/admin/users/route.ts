@@ -57,27 +57,31 @@ export async function PATCH(request: Request) {
 
   switch (action) {
     case 'deactivate': {
-      // 1. Set status = inactive, is_deleted = true
-      const { error: deactError } = await adminClient
-        .from('profiles')
-        .update({ status: 'inactive', is_deleted: true, updated_at: new Date().toISOString() })
-        .eq('id', target_user_id)
+      // 1. Delete reactions
+      await adminClient.from('reactions').delete().eq('user_id', target_user_id)
 
-      if (deactError) {
-        return NextResponse.json({ error: deactError.message }, { status: 500 })
+      // 2. Delete messages
+      await adminClient.from('messages').delete().eq('sender_id', target_user_id)
+
+      // 3. Remove from channel_members
+      await adminClient.from('channel_members').delete().eq('user_id', target_user_id)
+
+      // 4. Remove from workspace_members
+      await adminClient.from('workspace_members').delete().eq('user_id', target_user_id)
+
+      // 5. Nullify channels created by this user
+      await adminClient.from('channels').update({ created_by: null }).eq('created_by', target_user_id)
+
+      // 6. Delete profile
+      await adminClient.from('profiles').delete().eq('id', target_user_id)
+
+      // 7. Delete from Supabase Auth
+      const { error: authErr } = await adminClient.auth.admin.deleteUser(target_user_id)
+      if (authErr) {
+        return NextResponse.json({ error: 'Data removed but auth delete failed: ' + authErr.message }, { status: 500 })
       }
 
-      // 2. Remove from workspace members (removes from UI)
-      await adminClient
-        .from('workspace_members')
-        .delete()
-        .eq('user_id', target_user_id)
-        .eq('workspace_id', workspace_id)
-
-      // 3. Invalidate sessions (admin client can do this)
-      await adminClient.auth.admin.signOut(target_user_id)
-
-      return NextResponse.json({ success: true, message: 'User deactivated' })
+      return NextResponse.json({ success: true, message: 'User removed completely. They can rejoin via invite link.' })
     }
 
     case 'reactivate': {
