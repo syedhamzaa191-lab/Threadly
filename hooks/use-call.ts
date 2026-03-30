@@ -64,7 +64,6 @@ export function useCall(
   const roomCh = useRef<any>(null)
   const remoteRef = useRef<string | null>(null)
   const logCb = useRef(onCallLog); logCb.current = onCallLog
-  const rejectMsgCb = useRef<((msg: string) => void) | null>(null)
   const logged = useRef(false)
   const infoRef = useRef<{ type: CallType; name: string } | null>(null)
   const endRef = useRef<() => void>(() => {})
@@ -201,12 +200,7 @@ export function useCall(
       setState({ ...initialState, status: 'ringing', type: payload.type, remoteUserId: payload.callerId, remoteUserName: payload.callerName, remoteUserAvatar: payload.callerAvatar })
     })
     // Listen for reject from receiver (sent before they join room)
-    ch.on('broadcast', { event: 'incoming-reject' }, ({ payload }) => {
-      // If receiver sent a message, log it as a DM via the onCallLog mechanism
-      if (payload?.message && logCb.current && infoRef.current) {
-        // Use a special callback to send the reject message
-        rejectMsgCb.current?.(payload.message)
-      }
+    ch.on('broadcast', { event: 'incoming-reject' }, () => {
       cleanup()
       setState(p => ({ ...p, status: 'ended' }))
       setTimeout(() => setState(initialState), 2000)
@@ -389,5 +383,5 @@ export function useCall(
   const toggleMute = useCallback(() => { const t = localStream.current?.getAudioTracks()[0]; if (t) { t.enabled = !t.enabled; setState(p => ({ ...p, isMuted: !t.enabled })) } }, [])
   const toggleVideo = useCallback(() => { const t = localStream.current?.getVideoTracks()[0]; if (t) { t.enabled = !t.enabled; setState(p => ({ ...p, isVideoOff: !t.enabled })) } }, [])
 
-  return { callState: state, localVideoRef, remoteVideoRef, startCall, acceptCall, rejectCall, rejectWithMessage, endCall, toggleMute, toggleVideo, toggleSpeaker, rejectMsgCb }
+  return { callState: state, localVideoRef, remoteVideoRef, startCall, acceptCall, rejectCall, rejectWithMessage, endCall, toggleMute, toggleVideo, toggleSpeaker }
 }
