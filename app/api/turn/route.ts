@@ -14,8 +14,9 @@ export async function GET() {
   }
 
   try {
+    const appName = process.env.METERED_APP_NAME || 'mobileapp'
     const res = await fetch(
-      `https://threadly.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`,
+      `https://${appName}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`,
       { cache: 'no-store' }
     )
 
