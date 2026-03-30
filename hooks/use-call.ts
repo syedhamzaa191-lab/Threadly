@@ -23,7 +23,7 @@ const ICE_SERVERS = [
   { urls: 'stun:stun2.l.google.com:19302' },
   { urls: 'stun:stun3.l.google.com:19302' },
   { urls: 'stun:stun4.l.google.com:19302' },
-  // Free TURN servers from Open Relay (metered.ca)
+  // Free TURN servers
   {
     urls: 'turn:openrelay.metered.ca:80',
     username: 'openrelayproject',
@@ -57,11 +57,8 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
 
   const peerConnection = useRef<RTCPeerConnection | null>(null)
   const localStream = useRef<MediaStream | null>(null)
-  const remoteStreamRef = useRef<MediaStream | null>(null)
   const localVideoRef = useRef<HTMLVideoElement | null>(null)
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null)
-  // Programmatic audio element — not rendered via React, avoids ref timing issues
-  const remoteAudioEl = useRef<HTMLAudioElement | null>(null)
   const durationInterval = useRef<NodeJS.Timeout | null>(null)
   const supabaseRef = useRef(createClient())
   const pendingOffer = useRef<RTCSessionDescriptionInit | null>(null)
@@ -74,46 +71,86 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
   const isInitiatorRef = useRef(false)
   const durationRef = useRef(0)
 
-  // Create a persistent audio element on mount (attached to DOM body)
-  useEffect(() => {
-    const audio = document.createElement('audio')
-    audio.autoplay = true
-    audio.setAttribute('playsinline', 'true')
-    // Keep it in DOM but invisible — needed for some mobile browsers
-    audio.style.position = 'fixed'
-    audio.style.top = '-9999px'
-    audio.style.left = '-9999px'
-    audio.style.width = '0'
-    audio.style.height = '0'
-    document.body.appendChild(audio)
-    remoteAudioEl.current = audio
-    return () => {
-      audio.pause()
-      audio.srcObject = null
-      if (audio.parentNode) audio.parentNode.removeChild(audio)
-      remoteAudioEl.current = null
+  // ─── Audio playback (3 methods for maximum compatibility) ───
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
+  const remoteAudioEl = useRef<HTMLAudioElement | null>(null)
+  const remoteStreamRef = useRef<MediaStream | null>(null)
+
+  // Initialize audio on user gesture — MUST be called from click handler
+  const initAudio = useCallback(() => {
+    // Method 1: Web Audio API (most reliable on mobile)
+    try {
+      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+        audioContextRef.current = new AudioCtx()
+      }
+      // Resume unlocks audio playback on mobile
+      audioContextRef.current.resume().catch(() => {})
+    } catch (e) {
+      console.warn('[Call] AudioContext not supported:', e)
+    }
+
+    // Method 2: HTML Audio element (fallback)
+    if (!remoteAudioEl.current) {
+      const audio = document.createElement('audio')
+      audio.autoplay = true
+      audio.setAttribute('playsinline', 'true')
+      audio.volume = 1.0
+      document.body.appendChild(audio)
+      remoteAudioEl.current = audio
+    }
+    // Unlock by playing silence
+    const audio = remoteAudioEl.current
+    if (audio) {
+      audio.srcObject = new MediaStream()
+      const p = audio.play()
+      if (p) p.catch(() => {})
     }
   }, [])
 
-  // "Unlock" audio playback — must be called inside a user gesture (click handler)
-  const unlockAudio = useCallback(() => {
-    const audio = remoteAudioEl.current
-    if (!audio) return
-    // Playing (even silence) during a user gesture unlocks autoplay on mobile
-    audio.srcObject = new MediaStream()
-    audio.play().catch(() => {})
-  }, [])
-
-  // Attach remote stream to audio & video elements
-  const attachRemoteStream = useCallback((stream: MediaStream) => {
+  // Play remote stream through all available methods
+  const playRemoteAudio = useCallback((stream: MediaStream) => {
     remoteStreamRef.current = stream
+
+    // Attach to video element (for video calls)
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = stream
     }
+
+    // Method 1: Web Audio API
+    try {
+      const ctx = audioContextRef.current
+      if (ctx && ctx.state !== 'closed') {
+        // Disconnect old source
+        if (audioSourceRef.current) {
+          try { audioSourceRef.current.disconnect() } catch (e) { /* ignore */ }
+        }
+        const source = ctx.createMediaStreamSource(stream)
+        source.connect(ctx.destination)
+        audioSourceRef.current = source
+        console.log('[Call] Audio playing via Web Audio API')
+      }
+    } catch (e) {
+      console.warn('[Call] Web Audio API failed:', e)
+    }
+
+    // Method 2: HTML Audio element (belt & suspenders)
     const audio = remoteAudioEl.current
     if (audio) {
       audio.srcObject = stream
-      audio.play().catch((e) => console.warn('Audio play blocked:', e))
+      const p = audio.play()
+      if (p) {
+        p.then(() => console.log('[Call] Audio playing via <audio> element'))
+         .catch((e) => console.warn('[Call] <audio> play blocked:', e))
+      }
+    }
+
+    // Method 3: Attach to video element and ensure it plays
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = stream
+      const p = remoteVideoRef.current.play()
+      if (p) p.catch(() => {})
     }
   }, [])
 
@@ -127,7 +164,14 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       localStream.current = null
     }
     remoteStreamRef.current = null
+    // Disconnect Web Audio source
+    if (audioSourceRef.current) {
+      try { audioSourceRef.current.disconnect() } catch (e) { /* ignore */ }
+      audioSourceRef.current = null
+    }
+    // Clean audio element
     if (remoteAudioEl.current) {
+      remoteAudioEl.current.pause()
       remoteAudioEl.current.srcObject = null
     }
     if (peerConnection.current) {
@@ -143,6 +187,24 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       remoteChannelRef.current = null
     }
     pendingOffer.current = null
+  }, [])
+
+  // Cleanup audio element on unmount
+  useEffect(() => {
+    return () => {
+      if (remoteAudioEl.current) {
+        remoteAudioEl.current.pause()
+        remoteAudioEl.current.srcObject = null
+        if (remoteAudioEl.current.parentNode) {
+          remoteAudioEl.current.parentNode.removeChild(remoteAudioEl.current)
+        }
+        remoteAudioEl.current = null
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(() => {})
+        audioContextRef.current = null
+      }
+    }
   }, [])
 
   const sendToRemote = useCallback(async (remoteId: string, event: string, payload: any) => {
@@ -177,6 +239,9 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     }, 1000)
   }, [])
 
+  // Use ref for endCall to avoid stale closure in createPeerConnection
+  const endCallRef = useRef<() => void>(() => {})
+
   const createPeerConnection = useCallback((remoteId: string) => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
 
@@ -189,22 +254,22 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     }
 
     pc.ontrack = (event) => {
-      // Get or build the remote stream
-      let stream = event.streams[0]
-      if (!stream) {
-        if (!remoteStreamRef.current) {
-          remoteStreamRef.current = new MediaStream()
-        }
-        remoteStreamRef.current.addTrack(event.track)
-        stream = remoteStreamRef.current
-      }
-      attachRemoteStream(stream)
+      console.log('[WebRTC] ontrack fired, track kind:', event.track.kind, 'readyState:', event.track.readyState)
+      // Build remote stream from all received tracks
+      const stream = event.streams[0] || new MediaStream([event.track])
+      playRemoteAudio(stream)
     }
 
     pc.onconnectionstatechange = () => {
       console.log('[WebRTC] Connection state:', pc.connectionState)
+      if (pc.connectionState === 'connected') {
+        // Re-play audio when connection is fully established
+        if (remoteStreamRef.current) {
+          playRemoteAudio(remoteStreamRef.current)
+        }
+      }
       if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-        endCall()
+        endCallRef.current()
       }
     }
 
@@ -213,7 +278,7 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
     }
 
     return pc
-  }, [sendToRemote, attachRemoteStream])
+  }, [sendToRemote, playRemoteAudio])
 
   // Listen on own channel for incoming signals
   useEffect(() => {
@@ -280,8 +345,8 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
   ) => {
     if (!userId) return
 
-    // Unlock audio during this user gesture
-    unlockAudio()
+    // CRITICAL: Init audio during user gesture (click)
+    initAudio()
 
     let stream: MediaStream
     try {
@@ -351,15 +416,15 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       cleanup()
       setState(initialState)
     }
-  }, [userId, userName, userAvatar, createPeerConnection, sendToRemote, cleanup, unlockAudio])
+  }, [userId, userName, userAvatar, createPeerConnection, sendToRemote, cleanup, initAudio])
 
   // Accept incoming call
   const acceptCall = useCallback(async () => {
     const remoteId = remoteUserIdRef.current
     if (!pendingOffer.current || !remoteId) return
 
-    // Unlock audio during this user gesture (accept button click)
-    unlockAudio()
+    // CRITICAL: Init audio during user gesture (accept click)
+    initAudio()
 
     try {
       const pc = createPeerConnection(remoteId)
@@ -383,11 +448,6 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
         answer: pc.localDescription?.toJSON(),
       })
 
-      // Re-attach remote stream in case ontrack already fired
-      if (remoteStreamRef.current && remoteStreamRef.current.getTracks().length > 0) {
-        attachRemoteStream(remoteStreamRef.current)
-      }
-
       setState(prev => ({ ...prev, status: 'connected' }))
       startDurationTimer()
     } catch (err: any) {
@@ -399,7 +459,7 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       }
       rejectCall()
     }
-  }, [state.type, createPeerConnection, sendToRemote, startDurationTimer, unlockAudio, attachRemoteStream])
+  }, [state.type, createPeerConnection, sendToRemote, startDurationTimer, initAudio])
 
   // Reject incoming call
   const rejectCall = useCallback(() => {
@@ -431,6 +491,9 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
       callInfoRef.current = null
     }, 2000)
   }, [sendToRemote, cleanup])
+
+  // Keep endCallRef in sync
+  endCallRef.current = endCall
 
   // Toggle mute
   const toggleMute = useCallback(() => {
