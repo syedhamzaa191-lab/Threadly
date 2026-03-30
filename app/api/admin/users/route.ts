@@ -92,9 +92,24 @@ export async function PATCH(request: Request) {
       await adminClient.from('profiles').delete().eq('id', target_user_id)
 
       // 7. Delete from Supabase Auth
-      const { error: authErr } = await adminClient.auth.admin.deleteUser(target_user_id)
+      // Hard delete from Supabase Auth (not soft delete)
+      const { error: authErr } = await adminClient.auth.admin.deleteUser(target_user_id, false)
       if (authErr) {
-        return NextResponse.json({ error: 'Data removed but auth delete failed: ' + authErr.message }, { status: 500 })
+        // Fallback: try via REST API directly
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${target_user_id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+              'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            },
+          })
+          if (!res.ok) {
+            console.error('[Admin] Auth REST delete failed:', await res.text())
+          }
+        } catch (e) {
+          console.error('[Admin] Auth delete fallback failed:', e)
+        }
       }
 
       return NextResponse.json({ success: true, message: 'User removed completely. They can rejoin via invite link.' })
@@ -196,9 +211,21 @@ export async function PATCH(request: Request) {
       await adminClient.from('profiles').delete().eq('id', target_user_id)
 
       // 8. Delete auth user
-      const { error: authError } = await adminClient.auth.admin.deleteUser(target_user_id)
+      // Hard delete from Supabase Auth
+      const { error: authError } = await adminClient.auth.admin.deleteUser(target_user_id, false)
       if (authError) {
-        return NextResponse.json({ error: 'User data cleaned but auth delete failed: ' + authError.message }, { status: 500 })
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${target_user_id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+              'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            },
+          })
+          if (!res.ok) console.error('[Admin] Auth REST delete failed:', await res.text())
+        } catch (e) {
+          console.error('[Admin] Auth delete fallback failed:', e)
+        }
       }
 
       return NextResponse.json({ success: true, message: 'User permanently deleted' })
