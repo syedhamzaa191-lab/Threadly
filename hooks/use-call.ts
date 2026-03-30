@@ -71,6 +71,7 @@ export function useCall(
   const endRef = useRef<() => void>(() => {})
   const queued = useRef<RTCIceCandidateInit[]>([])
   const hasRD = useRef(false)
+  const sentCandidates = useRef<RTCIceCandidateInit[]>([])
 
   // Audio
   const actx = useRef<AudioContext | null>(null)
@@ -137,7 +138,7 @@ export function useCall(
     if (pcRef.current) { pcRef.current.close(); pcRef.current = null }
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     if (roomCh.current) { sb.current.removeChannel(roomCh.current); roomCh.current = null }
-    hasRD.current = false; queued.current = []
+    hasRD.current = false; queued.current = []; sentCandidates.current = []
   }, [])
 
   useEffect(() => () => {
@@ -166,6 +167,12 @@ export function useCall(
       hasRD.current = true
       await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload.answer))
       await flush()
+      // Re-send all our ICE candidates (receiver may have missed them before joining room)
+      if (roomCh.current && sentCandidates.current.length > 0) {
+        for (const cand of sentCandidates.current) {
+          roomCh.current.send({ type: 'broadcast', event: 'ice', payload: { candidate: cand } })
+        }
+      }
     })
     ch.on('broadcast', { event: 'ice' }, async ({ payload }) => {
       if (!pcRef.current || !payload.candidate) return
@@ -181,7 +188,13 @@ export function useCall(
   const makePc = useCallback((ice: RTCIceServer[]) => {
     console.log('[Call] Creating PC with', ice.length, 'ICE servers, TURN:', ice.some((s: any) => s.urls?.toString().includes('turn')))
     const c = new RTCPeerConnection({ iceServers: ice })
-    c.onicecandidate = e => { if (e.candidate && roomCh.current) roomCh.current.send({ type: 'broadcast', event: 'ice', payload: { candidate: e.candidate.toJSON() } }) }
+    c.onicecandidate = e => {
+      if (e.candidate) {
+        const cand = e.candidate.toJSON()
+        sentCandidates.current.push(cand)
+        if (roomCh.current) roomCh.current.send({ type: 'broadcast', event: 'ice', payload: { candidate: cand } })
+      }
+    }
     c.ontrack = e => { setState(p => ({ ...p, hasRemoteTrack: true })); playRemote(e.streams[0] || new MediaStream([e.track])) }
     c.oniceconnectionstatechange = () => {
       const s = c.iceConnectionState; setState(p => ({ ...p, iceState: s }))
