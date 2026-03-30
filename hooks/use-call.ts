@@ -31,15 +31,27 @@ const initialState: CallState = {
 let cachedIce: RTCIceServer[] | null = null
 let cacheTime = 0
 async function getIce(): Promise<RTCIceServer[]> {
-  // Cache for 5 minutes
   if (cachedIce && Date.now() - cacheTime < 300000) return cachedIce
   try {
-    const r = await fetch('https://mobileapp.metered.live/api/v1/turn/credentials?apiKey=7d563a91b37d968d6fcc8d3a7622bdf4f964')
-    cachedIce = await r.json()
-    cacheTime = Date.now()
-    return cachedIce!
+    // Try server-side route first (no CORS issues)
+    const r = await fetch('/api/turn')
+    if (r.ok) {
+      const d = await r.json()
+      cachedIce = d.iceServers
+      cacheTime = Date.now()
+      return cachedIce!
+    }
+    throw new Error('API failed')
   } catch {
-    return [{ urls: 'stun:stun.l.google.com:19302' }]
+    try {
+      // Fallback: direct Metered API
+      const r = await fetch('https://mobileapp.metered.live/api/v1/turn/credentials?apiKey=7d563a91b37d968d6fcc8d3a7622bdf4f964')
+      cachedIce = await r.json()
+      cacheTime = Date.now()
+      return cachedIce!
+    } catch {
+      return [{ urls: 'stun:stun.l.google.com:19302' }]
+    }
   }
 }
 
@@ -178,6 +190,7 @@ export function useCall(
   }, [cleanup, flush])
 
   const makePc = useCallback((ice: RTCIceServer[]) => {
+    console.log('[Call] Creating PC with', ice.length, 'ICE servers, TURN:', ice.some((s: any) => s.urls?.toString().includes('turn')))
     const c = new RTCPeerConnection({ iceServers: ice })
     c.onicecandidate = e => { if (e.candidate && roomCh.current) roomCh.current.send({ type: 'broadcast', event: 'ice', payload: { candidate: e.candidate.toJSON() } }) }
     c.ontrack = e => { setState(p => ({ ...p, hasRemoteTrack: true })); playRemote(e.streams[0] || new MediaStream([e.track])) }
