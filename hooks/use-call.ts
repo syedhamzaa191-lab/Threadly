@@ -196,7 +196,8 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
   const endCallRef = useRef<() => void>(() => {})
 
   const createPeerConnection = useCallback((iceServers: RTCIceServer[], roomChannel: any) => {
-    const pc = new RTCPeerConnection({ iceServers })
+    // Force TURN relay to guarantee NAT traversal
+    const pc = new RTCPeerConnection({ iceServers, iceTransportPolicy: 'relay' })
 
     pc.onicecandidate = (event) => {
       if (event.candidate && roomChannel) {
@@ -440,10 +441,11 @@ export function useCall(userId: string | undefined, userName: string, userAvatar
 
       await sendOffer(remoteUserId, pc.localDescription!.toJSON(), type)
 
-      // Auto-end if no answer in 30s
+      // Auto-end if no answer in 30s (but don't kill if ICE is negotiating)
       setTimeout(() => {
         setState(prev => {
-          if (prev.status === 'calling') {
+          // Only auto-end if still in 'calling' AND no ICE activity (no answer received)
+          if (prev.status === 'calling' && !prev.iceState) {
             cleanup()
             if (roomChannelRef.current) {
               roomChannelRef.current.send({ type: 'broadcast', event: 'call-end', payload: {} })
