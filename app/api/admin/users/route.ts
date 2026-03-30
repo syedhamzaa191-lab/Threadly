@@ -130,7 +130,47 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: true, message: `Role changed to ${new_role}` })
     }
 
+    case 'permanent_delete': {
+      // Only owner can permanently delete
+      const { data: callerRole } = await supabase
+        .from('workspace_members')
+        .select('role')
+        .eq('workspace_id', workspace_id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (callerRole?.role !== 'owner') {
+        return NextResponse.json({ error: 'Only workspace owner can permanently delete users' }, { status: 403 })
+      }
+
+      // 1. Delete reactions by this user
+      await adminClient.from('reactions').delete().eq('user_id', target_user_id)
+
+      // 2. Delete messages by this user
+      await adminClient.from('messages').delete().eq('sender_id', target_user_id)
+
+      // 3. Remove from channel_members
+      await adminClient.from('channel_members').delete().eq('user_id', target_user_id)
+
+      // 4. Remove from workspace_members (all workspaces)
+      await adminClient.from('workspace_members').delete().eq('user_id', target_user_id)
+
+      // 5. Set channels.created_by to null where this user created channels
+      await adminClient.from('channels').update({ created_by: null }).eq('created_by', target_user_id)
+
+      // 6. Delete profile
+      await adminClient.from('profiles').delete().eq('id', target_user_id)
+
+      // 7. Delete auth user
+      const { error: authError } = await adminClient.auth.admin.deleteUser(target_user_id)
+      if (authError) {
+        return NextResponse.json({ error: 'User data cleaned but auth delete failed: ' + authError.message }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, message: 'User permanently deleted' })
+    }
+
     default:
-      return NextResponse.json({ error: 'Invalid action. Use: deactivate, reactivate, change_role' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid action. Use: deactivate, reactivate, change_role, permanent_delete' }, { status: 400 })
   }
 }
