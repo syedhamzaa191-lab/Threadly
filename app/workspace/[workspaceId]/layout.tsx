@@ -56,9 +56,13 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   const activeDmIdRef = useRef(activeDmId)
   activeDmIdRef.current = activeDmId
 
+  // Store the DM channel when a call starts (so log works even if user navigates away)
+  const callDmChannelRef = useRef<string | null>(null)
+
   // Send call log as a message in the active DM
   const handleCallLog = useCallback(async (type: CallType, duration: number, remoteName: string) => {
-    const activeChannel = activeDmIdRef.current
+    const activeChannel = callDmChannelRef.current || activeDmIdRef.current
+    callDmChannelRef.current = null
     if (!activeChannel) return
     const mins = Math.floor(duration / 60)
     const secs = duration % 60
@@ -251,7 +255,11 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
         currentUserId={user.id}
       />
       </div>
-      <CallContext.Provider value={{ startCall }}>
+      <CallContext.Provider value={{ startCall: (remoteUserId, remoteName, remoteAvatar, type) => {
+        // Save active DM channel for call log
+        callDmChannelRef.current = activeDmId || null
+        startCall(remoteUserId, remoteName, remoteAvatar, type)
+      } }}>
         {children}
       </CallContext.Provider>
 
