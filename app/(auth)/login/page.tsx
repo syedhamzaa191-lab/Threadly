@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { ParticleField } from '@/components/ui/particles'
 
 const ERROR_MESSAGES: Record<string, string> = {
   account_deactivated: 'Your account has been deactivated. Contact your admin.',
@@ -49,11 +50,8 @@ function LoginContent() {
           <div className="absolute top-[50%] left-[50%] w-[300px] h-[300px] bg-indigo-500/8 rounded-full blur-[80px] animate-[float_10s_ease-in-out_infinite]" />
         </div>
 
-        {/* Grid overlay */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)',
-          backgroundSize: '60px 60px',
-        }} />
+        {/* Particle animation */}
+        <ParticleField />
 
         <div className="relative flex flex-col justify-between p-14 w-full z-10">
           {/* Logo */}
