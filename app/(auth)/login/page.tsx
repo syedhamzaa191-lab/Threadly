@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/client'
 
 const ERROR_MESSAGES: Record<string, string> = {
   account_deactivated: 'Your account has been deactivated. Contact your admin.',
-  not_invited: 'You are not invited to this workspace. Ask your admin for an invite.',
   auth_failed: 'Authentication failed. Please try again.',
   no_code: 'Something went wrong. Please try again.',
 }

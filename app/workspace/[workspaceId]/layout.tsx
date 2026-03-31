@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useMemo, createContext, useContext } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect, createContext, useContext } from 'react'
 import { useParams, useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { useWorkspace } from '@/hooks/use-workspace'
@@ -9,7 +9,7 @@ import { useDirectMessages } from '@/hooks/use-direct-messages'
 import { useUnread } from '@/hooks/use-unread'
 import { useCall, CallType } from '@/hooks/use-call'
 import { Sidebar } from '@/components/layout/sidebar'
-import { InviteModal } from '@/components/invite/invite-modal'
+import { ApprovalPanel } from '@/components/approval/approval-panel'
 import { ProfileModal } from '@/components/profile/profile-modal'
 import { NotificationToast } from '@/components/ui/notification-toast'
 import { CallModal } from '@/components/call/call-modal'
@@ -28,9 +28,10 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   const router = useRouter()
   const pathname = usePathname()
   const workspaceId = params.workspaceId as string
-  const [showInvite, setShowInvite] = useState(false)
+  const [showApprovals, setShowApprovals] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
@@ -77,6 +78,21 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
     toggleMute, toggleVideo, toggleSpeaker,
   } = useCall(user?.id, displayNameForCall, displayAvatarForCall, handleCallLog)
   const { unread, newMessageAlert, dismissAlert } = useUnread(workspaceId, currentActiveId, user?.id)
+
+  // Fetch pending approval count for admins
+  useEffect(() => {
+    if (!workspaceId) return
+    const fetchCount = async () => {
+      const res = await fetch(`/api/approval?workspace_id=${workspaceId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setPendingApprovalCount(data.requests?.length || 0)
+      }
+    }
+    fetchCount()
+    const interval = setInterval(fetchCount, 15000)
+    return () => clearInterval(interval)
+  }, [workspaceId])
 
   if (authLoading || wsLoading) {
     return (
@@ -191,7 +207,8 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
         onCreateChannel={isAdmin ? async (name: string) => {
           if (user) await createChannel(name, user.id)
         } : undefined}
-        onInviteClick={isAdmin ? () => setShowInvite(true) : undefined}
+        onApprovalsClick={isAdmin ? () => setShowApprovals(true) : undefined}
+        pendingApprovalCount={isAdmin ? pendingApprovalCount : 0}
         onProfileClick={() => setShowProfile(true)}
         onMembersClick={() => { router.push(`/workspace/${workspaceId}/members`); setSidebarOpen(false) }}
         onHomeClick={() => { router.push(`/workspace/${workspaceId}`); setSidebarOpen(false) }}
@@ -279,7 +296,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
         />
       )}
 
-      {showInvite && <InviteModal workspaceId={workspaceId} onClose={() => setShowInvite(false)} />}
+      {showApprovals && <ApprovalPanel workspaceId={workspaceId} onClose={() => setShowApprovals(false)} />}
       {showProfile && (
         <ProfileModal
           profile={profileData}

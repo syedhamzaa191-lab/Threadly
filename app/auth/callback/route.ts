@@ -45,16 +45,25 @@ export async function GET(request: Request) {
           .from('profiles')
           .update(updates)
           .eq('id', user.id)
-      } else {
-        // New user - check if they have a pending invite OR are workspace owner
-        const { data: invite } = await adminClient
-          .from('invites')
-          .select('id, workspace_id')
-          .eq('email', user.email || '')
-          .is('accepted_at', null)
+
+        // Check if they're a workspace member
+        const { data: membership } = await adminClient
+          .from('workspace_members')
+          .select('workspace_id')
+          .eq('user_id', user.id)
           .limit(1)
           .maybeSingle()
 
+        if (membership) {
+          if (redirect) return NextResponse.redirect(`${origin}${redirect}`)
+          return NextResponse.redirect(`${origin}/workspace/${membership.workspace_id}/channel`)
+        }
+
+        // Profile exists but no workspace membership — check if approval was granted
+        // (can happen if profile was created but approval pending)
+        return NextResponse.redirect(`${origin}/pending-approval`)
+      } else {
+        // New user — check if workspace owner
         const { data: isOwner } = await adminClient
           .from('workspaces')
           .select('id')
@@ -62,39 +71,43 @@ export async function GET(request: Request) {
           .limit(1)
           .maybeSingle()
 
-        if (!invite && !isOwner) {
-          // Not invited and not owner - block access
-          await supabase.auth.signOut()
-          return NextResponse.redirect(`${origin}/login?error=not_invited`)
+        if (isOwner) {
+          // Owner — create profile and let them in
+          await adminClient.from('profiles').upsert({
+            id: user.id,
+            email: user.email || '',
+            full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || '',
+            avatar_url: user.user_metadata?.avatar_url || null,
+            status: 'active',
+            is_deleted: false,
+          })
+          return NextResponse.redirect(`${origin}/workspace`)
         }
 
-        // Create profile for new invited user
-        await adminClient.from('profiles').upsert({
-          id: user.id,
+        // New user — create approval request and redirect to pending page
+        // Get the first workspace (main workspace) to request access to
+        const { data: workspace } = await adminClient
+          .from('workspaces')
+          .select('id')
+          .limit(1)
+          .maybeSingle()
+
+        // Create approval request via internal API call
+        const fullName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || ''
+        const avatarUrl = user.user_metadata?.avatar_url || null
+
+        await adminClient.from('approval_requests').insert({
+          user_id: user.id,
           email: user.email || '',
-          full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || '',
-          avatar_url: user.user_metadata?.avatar_url || null,
-          status: 'active',
-          is_deleted: false,
+          full_name: fullName,
+          avatar_url: avatarUrl,
+          workspace_id: workspace?.id || null,
+          status: 'pending',
+        }).catch(() => {
+          // Table might not exist yet, will be created on first admin access
         })
 
-        // If they have an invite, auto-add them to the workspace
-        if (invite) {
-          // Add to workspace as member
-          await adminClient.from('workspace_members').upsert({
-            workspace_id: invite.workspace_id,
-            user_id: user.id,
-            role: 'member',
-          })
-
-          // Mark invite as accepted
-          await adminClient
-            .from('invites')
-            .update({ accepted_at: new Date().toISOString() })
-            .eq('id', invite.id)
-
-          return NextResponse.redirect(`${origin}/workspace/${invite.workspace_id}/channel`)
-        }
+        return NextResponse.redirect(`${origin}/pending-approval`)
       }
     }
 

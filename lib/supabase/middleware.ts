@@ -31,7 +31,7 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPublicPage = pathname === '/' || pathname.startsWith('/login') ||
     pathname.startsWith('/signup') || pathname.startsWith('/invite') ||
-    pathname.startsWith('/auth')
+    pathname.startsWith('/auth') || pathname.startsWith('/pending-approval')
 
   // Protect workspace routes — must be logged in
   if (!user && pathname.startsWith('/workspace')) {
