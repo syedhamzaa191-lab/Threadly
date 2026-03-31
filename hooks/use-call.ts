@@ -31,7 +31,7 @@ const initialState: CallState = {
 let cachedIce: RTCIceServer[] | null = null
 let cacheTime = 0
 async function getIce(): Promise<RTCIceServer[]> {
-  if (cachedIce && Date.now() - cacheTime < 300000) return cachedIce
+  if (cachedIce && Date.now() - cacheTime < 120000) return cachedIce
   try {
     const r = await fetch('/api/turn')
     if (!r.ok) throw new Error()
@@ -40,7 +40,12 @@ async function getIce(): Promise<RTCIceServer[]> {
     cacheTime = Date.now()
     return cachedIce!
   } catch {
-    return [{ urls: 'stun:stun.l.google.com:19302' }]
+    // Fallback with free public TURN servers
+    return [
+      { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    ]
   }
 }
 
