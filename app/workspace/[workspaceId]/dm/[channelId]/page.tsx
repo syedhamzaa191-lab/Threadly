@@ -12,6 +12,7 @@ import { Avatar } from '@/components/ui/avatar'
 import { ReactionGroup } from '@/components/chat/reaction-display'
 import { createClient } from '@/lib/supabase/client'
 import { UserProfilePanel } from '@/components/profile/user-profile-panel'
+import { ForwardModal } from '@/components/chat/forward-modal'
 import { useCallContext } from '../../layout'
 
 export default function DmPage() {
@@ -26,6 +27,7 @@ export default function DmPage() {
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null)
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
   const [otherUser, setOtherUser] = useState<{ id: string; full_name: string; avatar_url: string | null } | null>(null)
+  const [forwardMsg, setForwardMsg] = useState<{ content: string; senderName: string } | null>(null)
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [highlightMsgId, setHighlightMsgId] = useState<string | null>(null)
@@ -249,6 +251,7 @@ export default function DmPage() {
               await deleteMessage(messageId)
             }}
             onUserClick={(uid) => { setThreadMessageId(null); setProfileUserId(uid) }}
+            onForward={(_id, content, senderName) => setForwardMsg({ content, senderName })}
           />
         )}
         <MessageInput
@@ -259,6 +262,16 @@ export default function DmPage() {
           }}
         />
       </main>
+
+      {forwardMsg && user && (
+        <ForwardModal
+          messageContent={forwardMsg.content}
+          senderName={forwardMsg.senderName}
+          workspaceId={workspaceId}
+          currentUserId={user.id}
+          onClose={() => setForwardMsg(null)}
+        />
+      )}
 
       {profileUserId && (
         <UserProfilePanel userId={profileUserId} onClose={() => setProfileUserId(null)} />

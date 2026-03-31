@@ -12,6 +12,7 @@ import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { ThreadPanel } from '@/components/chat/thread-panel'
 import { UserProfilePanel } from '@/components/profile/user-profile-panel'
+import { ForwardModal } from '@/components/chat/forward-modal'
 import { ReactionGroup } from '@/components/chat/reaction-display'
 
 export default function ChannelPage() {
@@ -25,6 +26,7 @@ export default function ChannelPage() {
   const { messages, loading, sendMessage, deleteMessage, toggleReaction } = useMessages(channelId)
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null)
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
+  const [forwardMsg, setForwardMsg] = useState<{ content: string; senderName: string } | null>(null)
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -181,6 +183,7 @@ export default function ChannelPage() {
               await deleteMessage(messageId)
             }}
             onUserClick={(uid) => { setThreadMessageId(null); setProfileUserId(uid) }}
+            onForward={(_id, content, senderName) => setForwardMsg({ content, senderName })}
           />
         )}
         <MessageInput
@@ -191,6 +194,16 @@ export default function ChannelPage() {
           }}
         />
       </main>
+
+      {forwardMsg && user && (
+        <ForwardModal
+          messageContent={forwardMsg.content}
+          senderName={forwardMsg.senderName}
+          workspaceId={workspaceId}
+          currentUserId={user.id}
+          onClose={() => setForwardMsg(null)}
+        />
+      )}
 
       {profileUserId && (
         <UserProfilePanel userId={profileUserId} onClose={() => setProfileUserId(null)} />

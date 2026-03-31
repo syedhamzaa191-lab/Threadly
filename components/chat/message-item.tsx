@@ -19,6 +19,7 @@ interface MessageItemProps {
   onThreadClick?: (messageId: string) => void
   onReact?: (messageId: string, emoji: string) => void
   onDelete?: (messageId: string) => void
+  onForward?: (messageId: string, content: string, senderName: string) => void
   onUserClick?: (userId: string) => void
 }
 
@@ -36,6 +37,7 @@ export function MessageItem({
   onThreadClick,
   onReact,
   onDelete,
+  onForward,
   onUserClick,
 }: MessageItemProps) {
   const isOwnMessage = !!(senderId && currentUserId && senderId === currentUserId)
@@ -64,6 +66,7 @@ export function MessageItem({
           onReact={(emoji) => onReact?.(id, emoji)}
           onThreadClick={() => onThreadClick?.(id)}
           onDelete={isOwnMessage && onDelete ? () => onDelete(id) : undefined}
+          onForward={onForward ? () => onForward(id, content, senderName) : undefined}
         />
       </div>
     )
@@ -106,6 +109,7 @@ export function MessageItem({
         onReact={(emoji) => onReact?.(id, emoji)}
         onThreadClick={() => onThreadClick?.(id)}
         onDelete={isOwnMessage && onDelete ? () => onDelete(id) : undefined}
+        onForward={onForward ? () => onForward(id, content, senderName) : undefined}
       />
     </div>
   )

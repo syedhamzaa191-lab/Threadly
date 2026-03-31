@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { EmojiPicker } from './emoji-picker'
+import { Tooltip } from './tooltip'
 
 interface MessageToolbarProps {
   messageId: string
@@ -9,16 +10,16 @@ interface MessageToolbarProps {
   onReact: (emoji: string) => void
   onThreadClick: () => void
   onDelete?: () => void
+  onForward?: () => void
 }
 
-export function MessageToolbar({ isOwnMessage, onReact, onThreadClick, onDelete }: MessageToolbarProps) {
+export function MessageToolbar({ isOwnMessage, onReact, onThreadClick, onDelete, onForward }: MessageToolbarProps) {
   const [showEmoji, setShowEmoji] = useState(false)
   const [showMore, setShowMore] = useState(false)
   const [openUpward, setOpenUpward] = useState(true)
   const btnRef = useRef<HTMLButtonElement>(null)
   const moreRef = useRef<HTMLDivElement>(null)
 
-  // Close delete menu on outside click
   useEffect(() => {
     if (!showMore) return
     function handleClick(e: MouseEvent) {
@@ -30,7 +31,6 @@ export function MessageToolbar({ isOwnMessage, onReact, onThreadClick, onDelete 
     return () => document.removeEventListener('mousedown', handleClick)
   }, [showMore])
 
-  // Detect if near top of screen — open picker downward instead
   useEffect(() => {
     if (showEmoji && btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
@@ -42,17 +42,19 @@ export function MessageToolbar({ isOwnMessage, onReact, onThreadClick, onDelete 
 
   return (
     <div className={`absolute -top-3.5 right-6 items-center gap-0.5 bg-[#322d45] rounded-lg shadow-lg border border-white/[0.08] px-1 py-0.5 z-40 ${forceVisible ? 'flex' : 'hidden group-hover:flex'}`}>
+      {/* React */}
       <div className="relative">
-        <button
-          ref={btnRef}
-          onClick={() => { setShowEmoji(!showEmoji); setShowMore(false) }}
-          className={`w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-all duration-150 ${showEmoji ? 'text-violet-400 bg-white/[0.08]' : 'text-white/30 hover:text-white/70'}`}
-          title="Add reaction"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </button>
+        <Tooltip text="React">
+          <button
+            ref={btnRef}
+            onClick={() => { setShowEmoji(!showEmoji); setShowMore(false) }}
+            className={`w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-all duration-150 ${showEmoji ? 'text-violet-400 bg-white/[0.08]' : 'text-white/30 hover:text-white/70'}`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+        </Tooltip>
         {showEmoji && (
           <EmojiPicker
             onSelect={(emoji) => { onReact(emoji); setShowEmoji(false) }}
@@ -61,26 +63,46 @@ export function MessageToolbar({ isOwnMessage, onReact, onThreadClick, onDelete 
           />
         )}
       </div>
-      <button
-        onClick={onThreadClick}
-        className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-all duration-150 text-white/30 hover:text-white/70"
-        title="Reply in thread"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-        </svg>
-      </button>
-      {isOwnMessage && (
-        <div className="relative" ref={moreRef}>
+
+      {/* Thread */}
+      <Tooltip text="Thread">
+        <button
+          onClick={onThreadClick}
+          className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-all duration-150 text-white/30 hover:text-white/70"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+          </svg>
+        </button>
+      </Tooltip>
+
+      {/* Forward */}
+      {onForward && (
+        <Tooltip text="Forward Message">
           <button
-            onClick={() => { setShowMore(!showMore); setShowEmoji(false) }}
-            className={`w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-all duration-150 ${showMore ? 'text-violet-400 bg-white/[0.08]' : 'text-white/30 hover:text-white/70'}`}
-            title="More actions"
+            onClick={onForward}
+            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-all duration-150 text-white/30 hover:text-white/70"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
             </svg>
           </button>
+        </Tooltip>
+      )}
+
+      {/* More (delete) */}
+      {isOwnMessage && (
+        <div className="relative" ref={moreRef}>
+          <Tooltip text="More">
+            <button
+              onClick={() => { setShowMore(!showMore); setShowEmoji(false) }}
+              className={`w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-all duration-150 ${showMore ? 'text-violet-400 bg-white/[0.08]' : 'text-white/30 hover:text-white/70'}`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              </svg>
+            </button>
+          </Tooltip>
           {showMore && (
             <div className="absolute top-full right-0 mt-1 bg-[#322d45] rounded-lg shadow-lg border border-white/[0.08] py-1 min-w-[150px] z-50">
               {onDelete && (
