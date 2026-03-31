@@ -109,7 +109,7 @@ export default function ChannelPage() {
 
   return (
     <>
-      <main className="flex-1 flex flex-col min-w-0 bg-[#1e1a2b] page-enter">
+      <main className="flex-1 flex flex-col min-w-0 bg-[#1e1a2b] page-enter overflow-x-hidden">
         <ChatHeader
           channelName={channel?.name || 'channel'}
           memberCount={members.length}

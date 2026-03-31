@@ -132,7 +132,7 @@ export default function DmPage() {
 
   return (
     <>
-      <main className="flex-1 flex flex-col min-w-0 bg-[#1e1a2b] page-enter">
+      <main className="flex-1 flex flex-col min-w-0 bg-[#1e1a2b] page-enter overflow-x-hidden">
         {/* DM Header */}
         <div className="px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-between bg-[#252133] border-b border-white/[0.06]">
           <button onClick={() => otherUser && setProfileUserId(otherUser.id)} className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">

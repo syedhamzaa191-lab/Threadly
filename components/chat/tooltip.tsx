@@ -14,9 +14,9 @@ export function Tooltip({ text, children }: TooltipProps) {
     <div className="relative" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
       {children}
       {show && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1 bg-black/90 text-white text-[11px] font-medium rounded-lg whitespace-nowrap pointer-events-none z-[200] animate-fade-in">
+        <div className="absolute bottom-full right-0 mb-1.5 px-2.5 py-1 bg-black/90 text-white text-[11px] font-medium rounded-lg whitespace-nowrap pointer-events-none z-[200] animate-fade-in">
           {text}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-transparent border-t-black/90" />
+          <div className="absolute top-full right-3 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-transparent border-t-black/90" />
         </div>
       )}
     </div>
