@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { EmojiPicker } from './emoji-picker'
 
 interface MessageToolbarProps {
@@ -14,14 +14,24 @@ interface MessageToolbarProps {
 export function MessageToolbar({ isOwnMessage, onReact, onThreadClick, onDelete }: MessageToolbarProps) {
   const [showEmoji, setShowEmoji] = useState(false)
   const [showMore, setShowMore] = useState(false)
+  const [openUpward, setOpenUpward] = useState(true)
+  const btnRef = useRef<HTMLButtonElement>(null)
 
-  // Keep toolbar visible when emoji picker or more menu is open
+  // Detect if near top of screen — open picker downward instead
+  useEffect(() => {
+    if (showEmoji && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setOpenUpward(rect.top > 350)
+    }
+  }, [showEmoji])
+
   const forceVisible = showEmoji || showMore
 
   return (
     <div className={`absolute -top-3.5 right-6 items-center gap-0.5 bg-[#322d45] rounded-lg shadow-lg border border-white/[0.08] px-1 py-0.5 z-40 ${forceVisible ? 'flex' : 'hidden group-hover:flex'}`}>
       <div className="relative">
         <button
+          ref={btnRef}
           onClick={() => { setShowEmoji(!showEmoji); setShowMore(false) }}
           className={`w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-all duration-150 ${showEmoji ? 'text-violet-400 bg-white/[0.08]' : 'text-white/30 hover:text-white/70'}`}
           title="Add reaction"
@@ -34,6 +44,7 @@ export function MessageToolbar({ isOwnMessage, onReact, onThreadClick, onDelete 
           <EmojiPicker
             onSelect={(emoji) => { onReact(emoji); setShowEmoji(false) }}
             onClose={() => setShowEmoji(false)}
+            openUpward={openUpward}
           />
         )}
       </div>
