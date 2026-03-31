@@ -38,9 +38,9 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col xl:flex-row">
       {/* Left side — premium branding */}
-      <div className="hidden xl:flex xl:w-1/2 bg-[#0c0618] relative overflow-hidden">
+      <div className="flex xl:w-1/2 bg-[#0c0618] relative overflow-hidden min-h-[50vh] xl:min-h-screen">
         {/* Elegant gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-violet-950/60 via-[#0c0618] to-purple-950/40" />
 
@@ -50,7 +50,7 @@ function LoginContent() {
           backgroundSize: '28px 28px',
         }} />
 
-        <div className="relative flex flex-col justify-between p-14 w-full z-10">
+        <div className="relative flex flex-col justify-between p-8 xl:p-14 w-full z-10">
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-[0_0_25px_rgba(139,92,246,0.4)]">
@@ -66,10 +66,10 @@ function LoginContent() {
               <span className="text-violet-300 text-xs font-semibold tracking-wide">TEAM PLATFORM</span>
             </div>
 
-            <h1 className="text-5xl font-extrabold text-white leading-[1.1] mb-5 tracking-tight">
-              Where great<br />teams do their<br />best work
+            <h1 className="text-3xl xl:text-5xl font-extrabold text-white leading-[1.1] mb-4 xl:mb-5 tracking-tight">
+              Where great teams do their best work
             </h1>
-            <p className="text-white/40 text-[16px] leading-relaxed max-w-[380px]">
+            <p className="text-white/40 text-[14px] xl:text-[16px] leading-relaxed max-w-[380px]">
               Real-time messaging, voice & video calls, and organized workspaces. Built for teams that move fast.
             </p>
 
@@ -81,7 +81,7 @@ function LoginContent() {
             </div>
 
             {/* Testimonial / social proof */}
-            <div className="mt-10 flex items-center gap-4">
+            <div className="mt-10 hidden xl:flex items-center gap-4">
               <div className="flex -space-x-2">
                 {['#7c3aed', '#ec4899', '#f59e0b', '#10b981'].map((color, i) => (
                   <div key={i} className="w-8 h-8 rounded-full border-2 border-[#0c0618] flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: color }}>
@@ -97,7 +97,7 @@ function LoginContent() {
           </div>
 
           {/* Footer */}
-          <p className="text-white/20 text-xs">&copy; 2025 Threadly. All rights reserved.</p>
+          <p className="text-white/20 text-xs hidden xl:block">&copy; 2025 Threadly. All rights reserved.</p>
         </div>
       </div>
 
@@ -107,17 +107,6 @@ function LoginContent() {
         <div className="absolute top-0 left-0 w-px h-full bg-gradient-to-b from-transparent via-violet-500/20 to-transparent hidden xl:block" />
 
         <div className={`w-full max-w-[380px] transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}>
-          {/* Mobile logo */}
-          <div className="flex items-center gap-3 mb-14 xl:hidden">
-            <div className="w-11 h-11 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-[0_0_25px_rgba(139,92,246,0.3)]">
-              <span className="text-white font-extrabold text-lg">T</span>
-            </div>
-            <div>
-              <span className="text-white font-extrabold text-lg block">Threadly</span>
-              <span className="text-white/25 text-[10px] font-medium">Team Communication</span>
-            </div>
-          </div>
-
           {/* Heading */}
           <div className="mb-10">
             <h2 className="text-[32px] font-extrabold text-white tracking-tight mb-2">Welcome back</h2>

@@ -50,9 +50,9 @@ export default function PendingApprovalPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col xl:flex-row">
       {/* Left side — branding (same as login) */}
-      <div className="hidden xl:flex xl:w-1/2 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 relative overflow-hidden">
+      <div className="flex xl:w-1/2 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 relative overflow-hidden min-h-[40vh] xl:min-h-screen">
         <div className="absolute inset-0 opacity-10" style={{
           backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
           backgroundSize: '32px 32px',
@@ -60,7 +60,7 @@ export default function PendingApprovalPage() {
         <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-white/10 rounded-full blur-[80px]" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[300px] h-[300px] bg-indigo-400/15 rounded-full blur-[60px]" />
 
-        <div className="relative flex flex-col justify-between p-12 w-full">
+        <div className="relative flex flex-col justify-between p-8 xl:p-12 w-full">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
               <span className="text-white font-extrabold text-lg">T</span>
@@ -69,7 +69,7 @@ export default function PendingApprovalPage() {
           </div>
 
           <div>
-            <h1 className="text-4xl font-extrabold text-white leading-tight mb-4">
+            <h1 className="text-3xl xl:text-4xl font-extrabold text-white leading-tight mb-4">
               Almost there
             </h1>
             <p className="text-white/60 text-base leading-relaxed max-w-[320px]">
@@ -77,21 +77,13 @@ export default function PendingApprovalPage() {
             </p>
           </div>
 
-          <p className="text-white/30 text-xs">&copy; 2025 Threadly. All rights reserved.</p>
+          <p className="text-white/30 text-xs hidden xl:block">&copy; 2025 Threadly. All rights reserved.</p>
         </div>
       </div>
 
       {/* Right side — status */}
       <div className="flex-1 bg-[#0a0612] flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-[400px]">
-          {/* Mobile logo */}
-          <div className="flex items-center gap-3 mb-12 xl:hidden">
-            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <span className="text-white font-extrabold text-lg">T</span>
-            </div>
-            <span className="text-white font-extrabold text-lg">Threadly</span>
-          </div>
-
           {/* Loading */}
           {status === 'loading' && (
             <div className="text-center">
