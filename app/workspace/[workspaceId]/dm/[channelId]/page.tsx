@@ -164,7 +164,8 @@ export default function DmPage() {
         <MessageInput
           placeholder={`Message ${otherUser?.full_name || '...'}`}
           onSend={async (content) => {
-            await sendMessage(content)
+            const profile = user ? { id: user.id, full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'You', avatar_url: user.user_metadata?.avatar_url || null } : undefined
+            await sendMessage(content, profile)
           }}
         />
       </main>

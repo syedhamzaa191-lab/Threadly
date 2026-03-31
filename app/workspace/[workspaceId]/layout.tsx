@@ -299,7 +299,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
         />
       )}
 
-      {showApprovals && <ApprovalPanel workspaceId={workspaceId} onClose={() => setShowApprovals(false)} />}
+      {showApprovals && <ApprovalPanel workspaceId={workspaceId} onClose={() => setShowApprovals(false)} onApproved={reload} />}
       {showProfile && (
         <ProfileModal
           profile={profileData}

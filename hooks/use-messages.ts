@@ -115,8 +115,13 @@ export function useMessages(channelId: string) {
           const enriched = await enrichWithProfiles([newMsg])
           if (enriched[0]) {
             setMessages((prev) => {
+              // Check if this exact message already exists
               if (prev.some((m) => m.id === enriched[0].id)) return prev
-              return [...prev, { ...enriched[0], reactions: [] }]
+              // Remove any temp optimistic message with same content/sender
+              const withoutTemp = prev.filter((m) =>
+                !(m.id.startsWith('temp-') && m.sender_id === enriched[0].sender_id && m.content === enriched[0].content)
+              )
+              return [...withoutTemp, { ...enriched[0], reactions: [] }]
             })
           }
         }
@@ -198,16 +203,41 @@ export function useMessages(channelId: string) {
     }
   }, [channelId])
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = async (content: string, currentUser?: { id: string; full_name: string; avatar_url: string | null }) => {
+    // Optimistic: show message instantly in UI
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    if (currentUser) {
+      const optimisticMsg: Message = {
+        id: tempId,
+        content,
+        channel_id: channelId,
+        sender_id: currentUser.id,
+        parent_message_id: null,
+        reply_count: 0,
+        created_at: new Date().toISOString(),
+        profiles: {
+          id: currentUser.id,
+          full_name: currentUser.full_name,
+          avatar_url: currentUser.avatar_url,
+        },
+        reactions: [],
+      }
+      setMessages((prev) => [...prev, optimisticMsg])
+    }
+
+    // Send to server in background
     const res = await fetch('/api/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ channel_id: channelId, content }),
     })
     if (!res.ok) {
+      // Remove optimistic message on failure
+      setMessages((prev) => prev.filter((m) => m.id !== tempId))
       const data = await res.json()
       return { error: new Error(data.error) }
     }
+    // Real message will arrive via realtime subscription and replace/deduplicate
     return { error: null }
   }
 
