@@ -21,6 +21,7 @@ interface MessageListProps {
   onThreadClick?: (messageId: string) => void
   onReact?: (messageId: string, emoji: string) => void
   onDelete?: (messageId: string) => void
+  onUserClick?: (userId: string) => void
 }
 
 function formatTime(dateStr: string) {
@@ -55,7 +56,7 @@ function isSenderChange(current: Message, previous: Message | null): boolean {
   return current.sender_id !== previous.sender_id
 }
 
-export function MessageList({ messages, currentUserId, onThreadClick, onReact, onDelete }: MessageListProps) {
+export function MessageList({ messages, currentUserId, onThreadClick, onReact, onDelete, onUserClick }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -126,6 +127,7 @@ export function MessageList({ messages, currentUserId, onThreadClick, onReact, o
                   onThreadClick={onThreadClick}
                   onReact={onReact}
                   onDelete={onDelete}
+                  onUserClick={onUserClick}
                 />
               )}
             </div>

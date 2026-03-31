@@ -19,6 +19,7 @@ interface MessageItemProps {
   onThreadClick?: (messageId: string) => void
   onReact?: (messageId: string, emoji: string) => void
   onDelete?: (messageId: string) => void
+  onUserClick?: (userId: string) => void
 }
 
 export function MessageItem({
@@ -35,6 +36,7 @@ export function MessageItem({
   onThreadClick,
   onReact,
   onDelete,
+  onUserClick,
 }: MessageItemProps) {
   const isOwnMessage = !!(senderId && currentUserId && senderId === currentUserId)
 
@@ -70,12 +72,12 @@ export function MessageItem({
   return (
     <div className="group relative px-4 md:px-8 hover:bg-white/[0.02] transition-colors duration-150">
       <div className="flex gap-3.5 pt-5 pb-1">
-        <div className="shrink-0 mt-0.5">
+        <button onClick={() => senderId && onUserClick?.(senderId)} className="shrink-0 mt-0.5 cursor-pointer">
           <Avatar name={senderName} src={senderAvatar} size="md" />
-        </div>
+        </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2.5">
-            <span className="text-[14px] font-bold text-white">{senderName}</span>
+            <button onClick={() => senderId && onUserClick?.(senderId)} className="text-[14px] font-bold text-white hover:text-violet-300 transition-colors cursor-pointer">{senderName}</button>
             <span className="text-[11px] text-white/25 font-medium tabular-nums">{timestamp}</span>
           </div>
           <div className="text-[14px] text-white/80 mt-0.5 leading-[1.65]">

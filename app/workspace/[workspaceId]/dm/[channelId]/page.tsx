@@ -11,6 +11,7 @@ import { ThreadPanel } from '@/components/chat/thread-panel'
 import { Avatar } from '@/components/ui/avatar'
 import { ReactionGroup } from '@/components/chat/reaction-display'
 import { createClient } from '@/lib/supabase/client'
+import { UserProfilePanel } from '@/components/profile/user-profile-panel'
 import { useCallContext } from '../../layout'
 
 export default function DmPage() {
@@ -23,6 +24,7 @@ export default function DmPage() {
   const { startCall } = useCallContext()
   const { messages, loading, sendMessage, deleteMessage, toggleReaction } = useMessages(channelId)
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null)
+  const [profileUserId, setProfileUserId] = useState<string | null>(null)
   const [otherUser, setOtherUser] = useState<{ id: string; full_name: string; avatar_url: string | null } | null>(null)
 
   const threadParent = messages.find((m) => m.id === threadMessageId)
@@ -103,20 +105,20 @@ export default function DmPage() {
       <main className="flex-1 flex flex-col min-w-0 bg-[#1e1a2b] page-enter">
         {/* DM Header */}
         <div className="px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-between bg-[#252133] border-b border-white/[0.06]">
-          <div className="flex items-center gap-3 min-w-0">
+          <button onClick={() => otherUser && setProfileUserId(otherUser.id)} className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">
             <div className="hidden sm:block">
               <Avatar name={otherUser?.full_name || '?'} src={otherUser?.avatar_url} size="lg" online />
             </div>
             <div className="sm:hidden">
               <Avatar name={otherUser?.full_name || '?'} src={otherUser?.avatar_url} size="md" online />
             </div>
-            <div>
-              <h2 className="font-bold text-[16px] text-white tracking-tight">
+            <div className="text-left">
+              <h2 className="font-bold text-[16px] text-white tracking-tight hover:text-violet-300 transition-colors">
                 {otherUser?.full_name || 'Loading...'}
               </h2>
               <p className="text-[11px] text-white/40 font-medium mt-0.5">Direct Message</p>
             </div>
-          </div>
+          </button>
           <div className="flex items-center gap-1">
             {/* Voice Call */}
             <button
@@ -160,6 +162,7 @@ export default function DmPage() {
             onDelete={async (messageId) => {
               await deleteMessage(messageId)
             }}
+            onUserClick={(uid) => { setThreadMessageId(null); setProfileUserId(uid) }}
           />
         )}
         <MessageInput
@@ -171,7 +174,11 @@ export default function DmPage() {
         />
       </main>
 
-      {threadMessageId && formattedParent && (
+      {profileUserId && (
+        <UserProfilePanel userId={profileUserId} onClose={() => setProfileUserId(null)} />
+      )}
+
+      {!profileUserId && threadMessageId && formattedParent && (
         <ThreadPanel
           parentMessage={formattedParent}
           replies={formattedReplies}

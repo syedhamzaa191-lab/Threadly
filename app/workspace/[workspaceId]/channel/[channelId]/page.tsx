@@ -11,6 +11,7 @@ import { ChatHeader } from '@/components/chat/chat-header'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { ThreadPanel } from '@/components/chat/thread-panel'
+import { UserProfilePanel } from '@/components/profile/user-profile-panel'
 import { ReactionGroup } from '@/components/chat/reaction-display'
 
 export default function ChannelPage() {
@@ -23,6 +24,7 @@ export default function ChannelPage() {
   const { members, myRole } = useWorkspace(workspaceId)
   const { messages, loading, sendMessage, deleteMessage, toggleReaction } = useMessages(channelId)
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null)
+  const [profileUserId, setProfileUserId] = useState<string | null>(null)
 
   const threadParent = messages.find((m) => m.id === threadMessageId)
   const { replies, sendReply } = useThread(threadMessageId, channelId)
@@ -104,6 +106,7 @@ export default function ChannelPage() {
             onDelete={async (messageId) => {
               await deleteMessage(messageId)
             }}
+            onUserClick={(uid) => { setThreadMessageId(null); setProfileUserId(uid) }}
           />
         )}
         <MessageInput
@@ -115,7 +118,11 @@ export default function ChannelPage() {
         />
       </main>
 
-      {threadMessageId && formattedParent && (
+      {profileUserId && (
+        <UserProfilePanel userId={profileUserId} onClose={() => setProfileUserId(null)} />
+      )}
+
+      {!profileUserId && threadMessageId && formattedParent && (
         <ThreadPanel
           parentMessage={formattedParent}
           replies={formattedReplies}
