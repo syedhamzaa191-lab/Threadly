@@ -30,7 +30,7 @@ export default function DmPage() {
   const [forwardMsg, setForwardMsg] = useState<{ content: string; senderName: string } | null>(null)
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [highlightMsgId, setHighlightMsgId] = useState<string | null>(null)
+  const [, setHighlightMsgId] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const searchResults = useMemo(() => {
@@ -269,6 +269,7 @@ export default function DmPage() {
           senderName={forwardMsg.senderName}
           workspaceId={workspaceId}
           currentUserId={user.id}
+          excludeChannelId={channelId}
           onClose={() => setForwardMsg(null)}
         />
       )}

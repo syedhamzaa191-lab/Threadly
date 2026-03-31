@@ -9,6 +9,7 @@ interface ForwardModalProps {
   senderName: string
   workspaceId: string
   currentUserId: string
+  excludeChannelId?: string
   onClose: () => void
 }
 
@@ -19,7 +20,7 @@ interface DmTarget {
   avatar: string | null
 }
 
-export function ForwardModal({ messageContent, senderName, workspaceId, currentUserId, onClose }: ForwardModalProps) {
+export function ForwardModal({ messageContent, senderName, workspaceId, currentUserId, excludeChannelId, onClose }: ForwardModalProps) {
   const [targets, setTargets] = useState<DmTarget[]>([])
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState<string | null>(null)
@@ -68,7 +69,9 @@ export function ForwardModal({ messageContent, senderName, workspaceId, currentU
         })
         .filter((t): t is DmTarget => t !== null)
 
-      setTargets(list)
+      // Filter out the current conversation
+      const filtered = excludeChannelId ? list.filter(t => t.channelId !== excludeChannelId) : list
+      setTargets(filtered)
       setLoading(false)
     }
     loadTargets()
