@@ -195,6 +195,11 @@
 .ring-spin { animation: ring-spin 20s linear infinite; }
 .ring-spin-r { animation: ring-spin-r 25s linear infinite; }
 
+@keyframes shrink {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
 /* Premium focus styles */
 input:focus, textarea:focus {
   outline: none;
