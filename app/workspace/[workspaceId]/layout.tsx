@@ -79,6 +79,50 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   } = useCall(user?.id, displayNameForCall, displayAvatarForCall, handleCallLog)
   const { unread, newMessageAlert, dismissAlert } = useUnread(workspaceId, currentActiveId, user?.id)
 
+  const channelList = useMemo(() => channels.map((ch) => ({
+    id: ch.id,
+    name: ch.name,
+    unread_count: unread[ch.id] || 0,
+  })), [channels, unread])
+
+  const dmList = useMemo(() => conversations.map((c) => ({
+    id: c.id,
+    name: c.otherUser.full_name,
+    avatar: c.otherUser.avatar_url,
+    lastMessage: c.lastMessage,
+    unread_count: unread[c.id] || 0,
+  })), [conversations, unread])
+
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'
+  const displayAvatar = profile?.avatar_url || user?.user_metadata?.avatar_url || null
+
+  const profileData = useMemo(() => ({
+    name: displayName,
+    email: user?.email || '',
+    role: myRole,
+    avatar: displayAvatar,
+    bio: '',
+    phone: '',
+    location: '',
+    department: '',
+  }), [displayName, user?.email, myRole, displayAvatar])
+
+  const handleProfileSave = useCallback(async (data: { name: string; email: string; role: string; avatar: string | null; bio: string; phone: string; location: string; department: string }) => {
+    if (!user) return
+    await supabase.from('profiles').upsert({
+      id: user.id,
+      full_name: data.name,
+      avatar_url: data.avatar,
+      email: user.email || '',
+      bio: data.bio,
+      phone: data.phone,
+      location: data.location,
+      department: data.department,
+    })
+    reload()
+    setShowProfile(false)
+  }, [user, supabase, reload])
+
   // Fetch pending approval count for admins
   useEffect(() => {
     if (!workspaceId) return
@@ -110,50 +154,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
     return null
   }
 
-  const channelList = useMemo(() => channels.map((ch) => ({
-    id: ch.id,
-    name: ch.name,
-    unread_count: unread[ch.id] || 0,
-  })), [channels, unread])
-
-  const dmList = useMemo(() => conversations.map((c) => ({
-    id: c.id,
-    name: c.otherUser.full_name,
-    avatar: c.otherUser.avatar_url,
-    lastMessage: c.lastMessage,
-    unread_count: unread[c.id] || 0,
-  })), [conversations, unread])
-
   const isAdmin = myRole === 'owner' || myRole === 'admin'
-
-  const displayName = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User'
-  const displayAvatar = profile?.avatar_url || user.user_metadata?.avatar_url || null
-
-  const profileData = useMemo(() => ({
-    name: displayName,
-    email: user.email || '',
-    role: myRole,
-    avatar: displayAvatar,
-    bio: '',
-    phone: '',
-    location: '',
-    department: '',
-  }), [displayName, user.email, myRole, displayAvatar])
-
-  const handleProfileSave = useCallback(async (data: { name: string; email: string; role: string; avatar: string | null; bio: string; phone: string; location: string; department: string }) => {
-    await supabase.from('profiles').upsert({
-      id: user.id,
-      full_name: data.name,
-      avatar_url: data.avatar,
-      email: user.email || '',
-      bio: data.bio,
-      phone: data.phone,
-      location: data.location,
-      department: data.department,
-    })
-    reload()
-    setShowProfile(false)
-  }, [user.id, user.email, supabase, reload])
 
   const handleNotificationClick = () => {
     if (newMessageAlert) {
