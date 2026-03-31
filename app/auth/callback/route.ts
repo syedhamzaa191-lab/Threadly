@@ -59,8 +59,35 @@ export async function GET(request: Request) {
           return NextResponse.redirect(`${origin}/workspace/${membership.workspace_id}/channel`)
         }
 
-        // Profile exists but no workspace membership — check if approval was granted
-        // (can happen if profile was created but approval pending)
+        // Profile exists but no workspace membership — create approval request if not already pending
+        const { data: workspace } = await adminClient
+          .from('workspaces')
+          .select('id')
+          .limit(1)
+          .maybeSingle()
+
+        if (workspace) {
+          // Check if approval request already exists
+          const { data: existingRequest } = await adminClient
+            .from('approval_requests')
+            .select('id')
+            .eq('user_id', user.id)
+            .in('status', ['pending', 'approved'])
+            .maybeSingle()
+            .catch(() => ({ data: null })) as any
+
+          if (!existingRequest) {
+            await adminClient.from('approval_requests').insert({
+              user_id: user.id,
+              email: user.email || '',
+              full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || '',
+              avatar_url: user.user_metadata?.avatar_url || null,
+              workspace_id: workspace.id,
+              status: 'pending',
+            }).catch(() => {})
+          }
+        }
+
         return NextResponse.redirect(`${origin}/pending-approval`)
       } else {
         // New user — check if workspace owner
