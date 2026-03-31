@@ -44,22 +44,9 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen bg-[#0a0612] flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-20%] left-[-15%] w-[700px] h-[700px] bg-violet-600/12 rounded-full blur-[140px] animate-[float_8s_ease-in-out_infinite]" />
-        <div className="absolute bottom-[-15%] right-[-10%] w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[120px] animate-[float_6s_ease-in-out_infinite_reverse]" />
-        <div className="absolute top-[30%] right-[20%] w-[400px] h-[400px] bg-indigo-600/6 rounded-full blur-[100px] animate-[float_10s_ease-in-out_infinite]" />
-      </div>
-
-      {/* Grid pattern */}
-      <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{
-        backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
-        backgroundSize: '40px 40px',
-      }} />
-
-      <div className={`relative w-full max-w-[520px] transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+      <div className={`relative w-full max-w-[660px] transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
         {/* Main card */}
-        <div className="bg-[#12101f]/80 backdrop-blur-2xl rounded-[28px] border border-white/[0.07] shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden">
+        <div className="bg-[#0a0612] rounded-[28px] border border-white/[0.07] shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden">
           {/* Top gradient bar */}
           <div className="h-1 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500" />
 
