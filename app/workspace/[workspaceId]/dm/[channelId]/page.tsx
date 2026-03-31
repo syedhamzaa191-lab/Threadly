@@ -142,10 +142,11 @@ export default function DmPage() {
         </div>
 
         {loading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center animate-fade-in">
-              <div className="w-8 h-8 border-2 border-white/10 border-t-purple-400 rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-sm font-medium text-white/30">Loading messages...</p>
+          <div className="flex-1 flex items-end justify-center pb-4">
+            <div className="flex gap-1.5 py-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-white/20 animate-[bounce_1s_infinite_0ms]" />
+              <div className="w-1.5 h-1.5 rounded-full bg-white/20 animate-[bounce_1s_infinite_200ms]" />
+              <div className="w-1.5 h-1.5 rounded-full bg-white/20 animate-[bounce_1s_infinite_400ms]" />
             </div>
           </div>
         ) : (

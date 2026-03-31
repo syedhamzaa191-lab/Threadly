@@ -32,6 +32,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   const [showProfile, setShowProfile] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
+  const [initialLoaded, setInitialLoaded] = useState(false)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
@@ -140,7 +141,15 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
     return () => clearInterval(interval)
   }, [workspaceId])
 
-  if (authLoading || wsLoading) {
+  // Track initial load — only show full-screen spinner on first load
+  useEffect(() => {
+    if (!authLoading && !wsLoading && !initialLoaded) {
+      setInitialLoaded(true)
+    }
+  }, [authLoading, wsLoading, initialLoaded])
+
+  // First load only — full screen spinner
+  if (!initialLoaded && (authLoading || wsLoading)) {
     return (
       <div className="min-h-screen bg-[#1e1a2b] flex items-center justify-center">
         <div className="text-center animate-fade-in">
