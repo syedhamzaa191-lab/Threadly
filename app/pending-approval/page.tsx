@@ -7,19 +7,13 @@ import { useRouter } from 'next/navigation'
 export default function PendingApprovalPage() {
   const [status, setStatus] = useState<'pending' | 'rejected' | 'approved' | 'loading'>('loading')
   const [userName, setUserName] = useState('')
-  const [mounted, setMounted] = useState(false)
   const router = useRouter()
   const supabase = createClient()
-
-  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     async function checkStatus() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
+      if (!user) { router.push('/login'); return }
 
       setUserName(user.user_metadata?.full_name || user.email?.split('@')[0] || 'there')
 
@@ -39,9 +33,7 @@ export default function PendingApprovalPage() {
       if (res.ok) {
         const data = await res.json()
         setStatus(data.status || 'pending')
-        if (data.status === 'approved') {
-          router.push('/workspace')
-        }
+        if (data.status === 'approved') router.push('/workspace')
       } else {
         setStatus('pending')
       }
@@ -58,124 +50,140 @@ export default function PendingApprovalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0612] flex items-center justify-center p-4 relative overflow-hidden">
-      <div className={`relative w-full max-w-[480px] transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
-          <div>
-            {/* Logo */}
-            <div className="flex items-center justify-center gap-3.5 mb-10">
-              <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-[0_0_30px_rgba(139,92,246,0.35)]">
-                <span className="text-white font-extrabold text-xl">T</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-extrabold text-white tracking-tight">Threadly</h1>
-                <p className="text-[11px] text-white/30 font-medium -mt-0.5">Team Communication</p>
-              </div>
+    <div className="min-h-screen flex">
+      {/* Left side — branding (same as login) */}
+      <div className="hidden lg:flex lg:w-[45%] bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10" style={{
+          backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
+          backgroundSize: '32px 32px',
+        }} />
+        <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-white/10 rounded-full blur-[80px]" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[300px] h-[300px] bg-indigo-400/15 rounded-full blur-[60px]" />
+
+        <div className="relative flex flex-col justify-between p-12 w-full">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+              <span className="text-white font-extrabold text-lg">T</span>
             </div>
+            <span className="text-white font-extrabold text-lg">Threadly</span>
+          </div>
 
-            {/* Loading */}
-            {status === 'loading' && (
-              <div className="text-center py-6">
-                <div className="w-10 h-10 border-2 border-white/10 border-t-purple-400 rounded-full animate-spin mx-auto mb-5" />
-                <p className="text-white/35 text-sm font-medium">Checking your status...</p>
-              </div>
-            )}
-
-            {/* Pending */}
-            {status === 'pending' && (
-              <div className="text-center">
-                {/* Animated waiting icon */}
-                <div className="relative w-20 h-20 mx-auto mb-6">
-                  <div className="absolute inset-0 bg-amber-500/10 rounded-2xl animate-[pulse-soft_2s_infinite]" />
-                  <div className="relative w-full h-full bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20">
-                    <svg className="w-9 h-9 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
-
-                <h2 className="text-[26px] font-extrabold text-white mb-1.5 tracking-tight">Hey {userName}!</h2>
-                <p className="text-[15px] text-white/50 font-semibold mb-5">Your request is being reviewed</p>
-
-                {/* Status steps */}
-                <div className="bg-white/[0.03] rounded-2xl border border-white/[0.05] p-5 mb-6 text-left">
-                  <div className="space-y-3.5">
-                    <StatusStep done text="Signed in with Google" />
-                    <StatusStep done text="Request sent to admin" />
-                    <StatusStep waiting text="Waiting for admin approval" />
-                    <StatusStep upcoming text="Access to workspace" />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-center gap-2.5 text-white/25 text-xs mb-7">
-                  <div className="flex gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-[bounce_1s_infinite_0ms]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-[bounce_1s_infinite_200ms]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-[bounce_1s_infinite_400ms]" />
-                  </div>
-                  <span>Auto-checking every few seconds</span>
-                </div>
-
-                <button
-                  onClick={handleSignOut}
-                  className="px-6 py-2.5 bg-white/[0.04] text-white/40 rounded-xl text-sm font-semibold hover:bg-white/[0.08] hover:text-white/60 transition-all border border-white/[0.06]"
-                >
-                  Sign out
-                </button>
-              </div>
-            )}
-
-            {/* Rejected */}
-            {status === 'rejected' && (
-              <div className="text-center">
-                <div className="w-20 h-20 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-red-500/20">
-                  <svg className="w-9 h-9 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </div>
-
-                <h2 className="text-[26px] font-extrabold text-white mb-1.5 tracking-tight">Access Denied</h2>
-                <p className="text-[14px] text-white/35 leading-relaxed mb-8 max-w-[340px] mx-auto">
-                  Your request to join Threadly was not approved. If you think this is a mistake, contact the workspace admin.
-                </p>
-
-                <button
-                  onClick={handleSignOut}
-                  className="px-8 py-3 bg-white/[0.06] text-white/60 rounded-xl text-sm font-bold hover:bg-white/[0.1] transition-all border border-white/[0.08]"
-                >
-                  Go Back
-                </button>
-              </div>
-            )}
-            <p className="text-center text-[11px] text-white/15 mt-8 font-medium">
-              Powered by Threadly &mdash; Built for teams
+          <div>
+            <h1 className="text-4xl font-extrabold text-white leading-tight mb-4">
+              Almost there
+            </h1>
+            <p className="text-white/60 text-base leading-relaxed max-w-[320px]">
+              Your account is being reviewed by the workspace admin. You'll get access shortly.
             </p>
           </div>
+
+          <p className="text-white/30 text-xs">&copy; 2025 Threadly. All rights reserved.</p>
+        </div>
+      </div>
+
+      {/* Right side — status */}
+      <div className="flex-1 bg-[#0a0612] flex items-center justify-center p-6 sm:p-12">
+        <div className="w-full max-w-[400px]">
+          {/* Mobile logo */}
+          <div className="flex items-center gap-3 mb-12 lg:hidden">
+            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <span className="text-white font-extrabold text-lg">T</span>
+            </div>
+            <span className="text-white font-extrabold text-lg">Threadly</span>
+          </div>
+
+          {/* Loading */}
+          {status === 'loading' && (
+            <div className="text-center">
+              <div className="w-10 h-10 border-2 border-white/10 border-t-purple-400 rounded-full animate-spin mx-auto mb-5" />
+              <p className="text-white/35 text-sm">Checking your status...</p>
+            </div>
+          )}
+
+          {/* Pending */}
+          {status === 'pending' && (
+            <div>
+              <div className="mb-10">
+                <h2 className="text-3xl font-extrabold text-white tracking-tight mb-2">Hey {userName}!</h2>
+                <p className="text-white/35 text-[15px]">Your request is being reviewed.</p>
+              </div>
+
+              {/* Progress steps */}
+              <div className="space-y-4 mb-10">
+                <Step done text="Signed in with Google" />
+                <Step done text="Request sent to admin" />
+                <Step waiting text="Waiting for approval" />
+                <Step upcoming text="Access to workspace" />
+              </div>
+
+              {/* Status indicator */}
+              <div className="flex items-center gap-3 p-4 bg-amber-500/5 rounded-xl border border-amber-500/10 mb-10">
+                <div className="flex gap-1 shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-[bounce_1s_infinite_0ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-[bounce_1s_infinite_200ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-[bounce_1s_infinite_400ms]" />
+                </div>
+                <p className="text-amber-300/60 text-[13px]">Auto-checking every few seconds</p>
+              </div>
+
+              <button
+                onClick={handleSignOut}
+                className="text-sm text-white/25 hover:text-white/50 transition-colors"
+              >
+                Sign out
+              </button>
+            </div>
+          )}
+
+          {/* Rejected */}
+          {status === 'rejected' && (
+            <div>
+              <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mb-8 border border-red-500/20">
+                <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+
+              <h2 className="text-3xl font-extrabold text-white tracking-tight mb-2">Access Denied</h2>
+              <p className="text-white/35 text-[15px] mb-10 leading-relaxed">
+                Your request was not approved. Contact the workspace admin if you think this is a mistake.
+              </p>
+
+              <button
+                onClick={handleSignOut}
+                className="px-6 py-3 bg-white/[0.06] text-white/50 rounded-xl text-sm font-semibold hover:bg-white/[0.1] transition-all"
+              >
+                Go Back
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
-function StatusStep({ done, waiting, upcoming, text }: { done?: boolean; waiting?: boolean; upcoming?: boolean; text: string }) {
+function Step({ done, waiting, upcoming, text }: { done?: boolean; waiting?: boolean; upcoming?: boolean; text: string }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3.5">
       {done && (
-        <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0 border border-emerald-500/20">
-          <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
+          <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
           </svg>
         </div>
       )}
       {waiting && (
-        <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0 border border-amber-500/20">
+        <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center shrink-0">
           <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
         </div>
       )}
       {upcoming && (
-        <div className="w-7 h-7 rounded-lg bg-white/[0.04] flex items-center justify-center shrink-0 border border-white/[0.06]">
+        <div className="w-8 h-8 rounded-full bg-white/[0.04] flex items-center justify-center shrink-0">
           <div className="w-2 h-2 rounded-full bg-white/15" />
         </div>
       )}
-      <span className={`text-[13px] font-medium ${done ? 'text-white/50' : waiting ? 'text-amber-300/70' : 'text-white/20'}`}>
+      <span className={`text-[14px] ${done ? 'text-white/50' : waiting ? 'text-amber-300/70 font-medium' : 'text-white/20'}`}>
         {text}
       </span>
     </div>
