@@ -25,8 +25,8 @@ export function ParticleField() {
 
     let animId: number
     let particles: Particle[] = []
-    const PARTICLE_COUNT = 60
-    const CONNECTION_DIST = 120
+    const PARTICLE_COUNT = 80
+    const CONNECTION_DIST = 140
     const MOUSE = { x: -1000, y: -1000 }
 
     const resize = () => {
@@ -45,8 +45,8 @@ export function ParticleField() {
           y: Math.random() * h,
           vx: (Math.random() - 0.5) * 0.4,
           vy: (Math.random() - 0.5) * 0.4,
-          size: Math.random() * 2 + 1,
-          opacity: Math.random() * 0.5 + 0.1,
+          size: Math.random() * 2.5 + 1,
+          opacity: Math.random() * 0.5 + 0.2,
           pulse: Math.random() * Math.PI * 2,
           pulseSpeed: Math.random() * 0.02 + 0.01,
         })
@@ -82,13 +82,13 @@ export function ParticleField() {
         // Draw particle
         ctx.beginPath()
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(167, 139, 250, ${pulseOpacity})`
+        ctx.fillStyle = `rgba(200, 180, 255, ${pulseOpacity})`
         ctx.fill()
 
-        // Glow
+        // Outer glow
         ctx.beginPath()
-        ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(139, 92, 246, ${pulseOpacity * 0.15})`
+        ctx.arc(p.x, p.y, p.size * 4, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(139, 92, 246, ${pulseOpacity * 0.2})`
         ctx.fill()
       }
 
@@ -99,11 +99,11 @@ export function ParticleField() {
           const dy = particles[i].y - particles[j].y
           const dist = Math.sqrt(dx * dx + dy * dy)
           if (dist < CONNECTION_DIST) {
-            const opacity = (1 - dist / CONNECTION_DIST) * 0.15
+            const opacity = (1 - dist / CONNECTION_DIST) * 0.25
             ctx.beginPath()
             ctx.moveTo(particles[i].x, particles[i].y)
             ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.strokeStyle = `rgba(167, 139, 250, ${opacity})`
+            ctx.strokeStyle = `rgba(180, 160, 255, ${opacity})`
             ctx.lineWidth = 0.5
             ctx.stroke()
           }

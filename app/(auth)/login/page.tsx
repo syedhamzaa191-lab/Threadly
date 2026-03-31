@@ -42,16 +42,13 @@ function LoginContent() {
     <div className="min-h-screen flex">
       {/* Left side — premium branding */}
       <div className="hidden xl:flex xl:w-1/2 bg-[#0c0618] relative overflow-hidden">
-        {/* Animated gradient mesh */}
-        <div className="absolute inset-0">
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-violet-600/20 via-transparent to-purple-600/10" />
-          <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-violet-600/15 rounded-full blur-[120px] animate-[float_8s_ease-in-out_infinite]" />
-          <div className="absolute bottom-[-10%] right-[-5%] w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-[100px] animate-[float_6s_ease-in-out_infinite_reverse]" />
-          <div className="absolute top-[50%] left-[50%] w-[300px] h-[300px] bg-indigo-500/8 rounded-full blur-[80px] animate-[float_10s_ease-in-out_infinite]" />
-        </div>
+        {/* Subtle gradient base */}
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-900/30 via-[#0c0618] to-purple-900/20" />
 
-        {/* Particle animation */}
-        <ParticleField />
+        {/* Particle animation — on top */}
+        <div className="absolute inset-0 z-[1]">
+          <ParticleField />
+        </div>
 
         <div className="relative flex flex-col justify-between p-14 w-full z-10">
           {/* Logo */}
