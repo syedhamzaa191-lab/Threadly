@@ -52,7 +52,7 @@ export default function PendingApprovalPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left side — branding (same as login) */}
-      <div className="hidden lg:flex lg:w-[45%] bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 relative overflow-hidden">
+      <div className="hidden xl:flex xl:w-1/2 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10" style={{
           backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
           backgroundSize: '32px 32px',
@@ -85,7 +85,7 @@ export default function PendingApprovalPage() {
       <div className="flex-1 bg-[#0a0612] flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-[400px]">
           {/* Mobile logo */}
-          <div className="flex items-center gap-3 mb-12 lg:hidden">
+          <div className="flex items-center gap-3 mb-12 xl:hidden">
             <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
               <span className="text-white font-extrabold text-lg">T</span>
             </div>
