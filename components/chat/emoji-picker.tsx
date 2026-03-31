@@ -1,23 +1,101 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 
 const EMOJI_CATEGORIES = [
   {
     name: 'Smileys',
-    emojis: ['😀', '😂', '🤣', '😊', '😍', '🥰', '😘', '😎', '🤩', '😇', '🤗', '🤔', '😏', '😢', '😮', '🥳'],
+    icon: '😀',
+    emojis: [
+      '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩',
+      '😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🫡',
+      '🤐','🤨','😐','😑','😶','🫥','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴',
+      '😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐',
+      '😕','🫤','😟','🙁','😮','😯','😲','😳','🥺','🥹','😦','😧','😨','😰','😥','😢',
+      '😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀',
+      '☠️','💩','🤡','👹','👺','👻','👽','👾','🤖',
+    ],
   },
   {
     name: 'Gestures',
-    emojis: ['👍', '👎', '👏', '🙌', '🤝', '💪', '👋', '🙏', '✌️', '🤞', '👀', '🫡'],
+    icon: '👋',
+    emojis: [
+      '👋','🤚','🖐️','✋','🖖','🫱','🫲','🫳','🫴','👌','🤌','🤏','✌️','🤞','🫰','🤟',
+      '🤘','🤙','👈','👉','👆','🖕','👇','☝️','🫵','👍','👎','✊','👊','🤛','🤜','👏',
+      '🙌','🫶','👐','🤲','🤝','🙏','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','👀','👁️',
+      '👅','👄','🫦','💋','💅','🤳','💃','🕺',
+    ],
   },
   {
     name: 'Hearts',
-    emojis: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '💔', '💕', '💗', '💖'],
+    icon: '❤️',
+    emojis: [
+      '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖',
+      '💘','💝','💟','♥️','🫀','❤️‍🔥','❤️‍🩹','💑','💏','👨‍❤️‍👨','👩‍❤️‍👩',
+    ],
+  },
+  {
+    name: 'Animals',
+    icon: '🐶',
+    emojis: [
+      '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈',
+      '🙉','🙊','🐒','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝',
+      '🪱','🐛','🦋','🐌','🐞','🐜','🪲','🐢','🐍','🦎','🐙','🦑','🦞','🦀','🐡','🐠',
+      '🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫',
+      '🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮',
+    ],
+  },
+  {
+    name: 'Food',
+    icon: '🍕',
+    emojis: [
+      '🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝',
+      '🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🥐',
+      '🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🦴','🌭',
+      '🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🥫','🍝','🍜',
+      '🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡','🍧',
+      '🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯',
+      '☕','🍵','🧋','🥤','🍶','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧃','🧊',
+    ],
+  },
+  {
+    name: 'Travel',
+    icon: '✈️',
+    emojis: [
+      '🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🛵','🏍️',
+      '🛺','🚲','🛴','🚏','🛣️','🛤️','⛽','🚨','🚥','🚦','🛑','🚧','⚓','⛵','🛶','🚤',
+      '🛳️','⛴️','🛥️','🚢','✈️','🛩️','🛫','🛬','🪂','💺','🚁','🚀','🛸','🏠','🏡',
+      '🏢','🏣','🏤','🏥','🏦','🏨','🏩','🏪','🏫','🏬','🏭','🏯','🏰','💒','🗼','🗽',
+      '⛪','🕌','🛕','🕍','⛩️','🕋','⛲','⛺','🌁','🌃','🏙️','🌄','🌅','🌆','🌇','🌉',
+    ],
+  },
+  {
+    name: 'Objects',
+    icon: '💡',
+    emojis: [
+      '⌚','📱','💻','⌨️','🖥️','🖨️','🖱️','🖲️','💽','💾','💿','📀','📷','📹','🎥','📽️',
+      '🎞️','📞','☎️','📟','📠','📺','📻','🎙️','🎚️','🎛️','🧭','⏱️','⏲️','⏰','🕰️','⌛',
+      '📡','🔋','🔌','💡','🔦','🕯️','🧯','🗑️','🛢️','💸','💵','💴','💶','💷','🪙','💰',
+      '💳','💎','⚖️','🪜','🧰','🪛','🔧','🔨','⚒️','🛠️','⛏️','🪚','🔩','⚙️','🪤','🧲',
+      '🔫','💣','🧨','🪓','🔪','🗡️','⚔️','🛡️','🔮','📿','🧿','🪬','💈','⚗️','🔭','🔬',
+      '🕳️','🩹','🩺','🩻','💊','💉','🩸','🧬','🦠','🧫','🧪','🌡️','🧹','🪠','🧺','🧻',
+    ],
   },
   {
     name: 'Symbols',
-    emojis: ['🔥', '✨', '⭐', '💯', '🚀', '🎉', '🎯', '💡', '✅', '❌', '⚡', '💎'],
+    icon: '⭐',
+    emojis: [
+      '🔥','✨','⭐','💯','🚀','🎉','🎊','🎯','💡','✅','❌','⚡','💎','🏆','🥇','🥈',
+      '🥉','🏅','🎖️','📌','📍','🔴','🟠','🟡','🟢','🔵','🟣','🟤','⚫','⚪','🔶','🔷',
+      '♠️','♥️','♦️','♣️','🃏','🀄','🎴','🔇','🔈','🔉','🔊','📢','📣','📯','🔔','🔕',
+      '🎵','🎶','🎼','🎹','🥁','🎷','🎺','🎸','🪕','🎻','🪗','🎲','🧩','🎮','🕹️','🎳',
+      '🎯','🏀','⚽','⚾','🥎','🎾','🏐','🏈','🏉','🎱','🏓','🏸','🏒','🥅','⛳','🏹',
+      '🎣','🤿','🥊','🥋','🎽','🛹','🛼','⛸️','🥌','🛷','🎿','⛷️','🏄','🏇','🚴','🧘',
+      '♻️','🔰','⚜️','🔱','📛','🔝','🔙','🔛','🔜','🔚','🆕','🆓','🆙','🆗','🆒','🆖',
+      '📳','📴','🈶','🈚','🈸','🈺','🈷️','🔅','🔆','🌐','♾️','💠','Ⓜ️','🌀','💤','🏧',
+      '🚾','♿','🅿️','🈳','🈂️','🛂','🛃','🛄','🛅','🚹','🚺','🚼','⚧️','🚻','🚮','🎦',
+      '📶','🈁','🔣','ℹ️','🔤','🔡','🔠','🆎','🆑','🅾️','🅱️','🆘','🏳️','🏴','🏁','🚩','🏳️‍🌈',
+    ],
   },
 ]
 
@@ -29,6 +107,12 @@ interface EmojiPickerProps {
 export function EmojiPicker({ onSelect, onClose }: EmojiPickerProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [activeTab, setActiveTab] = useState(0)
+  const [search, setSearch] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    searchRef.current?.focus()
+  }, [])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -36,48 +120,108 @@ export function EmojiPicker({ onSelect, onClose }: EmojiPickerProps) {
         onClose()
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    // Use timeout to prevent immediate close when clicking the emoji button
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside)
+    }, 100)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
   }, [onClose])
+
+  const allEmojis = useMemo(() => EMOJI_CATEGORIES.flatMap(c => c.emojis), [])
+
+  const filteredEmojis = useMemo(() => {
+    if (!search.trim()) return null
+    const q = search.toLowerCase()
+    return allEmojis.filter(e => e.includes(q))
+  }, [search, allEmojis])
 
   return (
     <div
       ref={ref}
-      className="absolute bottom-full right-0 mb-2 bg-[#2a2540] rounded-2xl shadow-2xl border border-white/[0.08] p-0 z-50 w-[280px] sm:w-[320px] animate-scale-in overflow-hidden"
+      className="absolute bottom-full right-0 mb-2 bg-[#2a2540] rounded-2xl shadow-2xl border border-white/[0.1] z-[100] w-[320px] sm:w-[360px] animate-scale-in overflow-hidden"
+      onMouseDown={(e) => e.stopPropagation()}
     >
-      {/* Tabs */}
-      <div className="flex border-b border-white/[0.06] px-2 pt-2 gap-1">
-        {EMOJI_CATEGORIES.map((cat, i) => (
-          <button
-            key={cat.name}
-            onClick={() => setActiveTab(i)}
-            className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-t-lg transition-colors ${
-              activeTab === i
-                ? 'text-purple-300 bg-white/[0.06]'
-                : 'text-white/25 hover:text-white/40'
-            }`}
-          >
-            {cat.name}
-          </button>
-        ))}
+      {/* Search */}
+      <div className="p-2.5 pb-1.5">
+        <div className="relative">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            ref={searchRef}
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search emojis..."
+            className="w-full pl-8 pr-3 py-2 bg-white/[0.06] rounded-lg text-[12px] text-white/70 placeholder:text-white/20 border border-white/[0.06] focus:border-violet-500/30 outline-none transition-colors"
+          />
+        </div>
       </div>
 
-      {/* Emoji Grid */}
-      <div className="p-2 max-h-[200px] overflow-y-auto scrollbar-dark">
-        <div className="grid grid-cols-8 gap-0.5">
-          {EMOJI_CATEGORIES[activeTab].emojis.map((emoji) => (
+      {/* Category tabs */}
+      {!search && (
+        <div className="flex px-2 gap-0.5 border-b border-white/[0.06] pb-1.5">
+          {EMOJI_CATEGORIES.map((cat, i) => (
             <button
-              key={emoji}
-              onClick={() => {
-                onSelect(emoji)
-                onClose()
-              }}
-              className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/[0.08] active:scale-90 transition-all text-xl"
+              key={cat.name}
+              onClick={() => setActiveTab(i)}
+              className={`flex-1 py-1.5 text-center rounded-lg transition-colors ${
+                activeTab === i
+                  ? 'bg-white/[0.08] text-white'
+                  : 'text-white/30 hover:text-white/50 hover:bg-white/[0.04]'
+              }`}
+              title={cat.name}
             >
-              {emoji}
+              <span className="text-[14px]">{cat.icon}</span>
             </button>
           ))}
         </div>
+      )}
+
+      {/* Emoji Grid */}
+      <div className="p-2 h-[220px] overflow-y-auto scrollbar-dark">
+        {search && filteredEmojis !== null ? (
+          <>
+            <p className="text-[10px] text-white/25 font-bold uppercase tracking-widest px-1 mb-1.5">
+              {filteredEmojis.length} results
+            </p>
+            {filteredEmojis.length === 0 ? (
+              <p className="text-white/20 text-[12px] text-center py-6">No emojis found</p>
+            ) : (
+              <div className="grid grid-cols-8 gap-0.5">
+                {filteredEmojis.map((emoji, i) => (
+                  <button
+                    key={`${emoji}-${i}`}
+                    onClick={() => onSelect(emoji)}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/[0.1] active:scale-90 transition-all text-xl"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="text-[10px] text-white/25 font-bold uppercase tracking-widest px-1 mb-1.5">
+              {EMOJI_CATEGORIES[activeTab].name}
+            </p>
+            <div className="grid grid-cols-8 gap-0.5">
+              {EMOJI_CATEGORIES[activeTab].emojis.map((emoji, i) => (
+                <button
+                  key={`${emoji}-${i}`}
+                  onClick={() => onSelect(emoji)}
+                  className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/[0.1] active:scale-90 transition-all text-xl"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

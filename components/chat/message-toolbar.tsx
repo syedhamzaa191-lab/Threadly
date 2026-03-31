@@ -11,16 +11,19 @@ interface MessageToolbarProps {
   onDelete?: () => void
 }
 
-export function MessageToolbar({ messageId, isOwnMessage, onReact, onThreadClick, onDelete }: MessageToolbarProps) {
+export function MessageToolbar({ isOwnMessage, onReact, onThreadClick, onDelete }: MessageToolbarProps) {
   const [showEmoji, setShowEmoji] = useState(false)
   const [showMore, setShowMore] = useState(false)
 
+  // Keep toolbar visible when emoji picker or more menu is open
+  const forceVisible = showEmoji || showMore
+
   return (
-    <div className="absolute -top-3.5 right-6 hidden group-hover:flex items-center gap-0.5 bg-[#322d45] rounded-lg shadow-lg border border-white/[0.08] px-1 py-0.5 z-40">
+    <div className={`absolute -top-3.5 right-6 items-center gap-0.5 bg-[#322d45] rounded-lg shadow-lg border border-white/[0.08] px-1 py-0.5 z-40 ${forceVisible ? 'flex' : 'hidden group-hover:flex'}`}>
       <div className="relative">
         <button
-          onClick={() => setShowEmoji(!showEmoji)}
-          className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-all duration-150 text-white/30 hover:text-white/70"
+          onClick={() => { setShowEmoji(!showEmoji); setShowMore(false) }}
+          className={`w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-all duration-150 ${showEmoji ? 'text-violet-400 bg-white/[0.08]' : 'text-white/30 hover:text-white/70'}`}
           title="Add reaction"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,7 +31,10 @@ export function MessageToolbar({ messageId, isOwnMessage, onReact, onThreadClick
           </svg>
         </button>
         {showEmoji && (
-          <EmojiPicker onSelect={(emoji) => { onReact(emoji); setShowEmoji(false) }} onClose={() => setShowEmoji(false)} />
+          <EmojiPicker
+            onSelect={(emoji) => { onReact(emoji); setShowEmoji(false) }}
+            onClose={() => setShowEmoji(false)}
+          />
         )}
       </div>
       <button
@@ -43,8 +49,8 @@ export function MessageToolbar({ messageId, isOwnMessage, onReact, onThreadClick
       {isOwnMessage && (
         <div className="relative">
           <button
-            onClick={() => setShowMore(!showMore)}
-            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-all duration-150 text-white/30 hover:text-white/70"
+            onClick={() => { setShowMore(!showMore); setShowEmoji(false) }}
+            className={`w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-all duration-150 ${showMore ? 'text-violet-400 bg-white/[0.08]' : 'text-white/30 hover:text-white/70'}`}
             title="More actions"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
