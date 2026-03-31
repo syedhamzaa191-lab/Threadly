@@ -127,11 +127,13 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!workspaceId) return
     const fetchCount = async () => {
-      const res = await fetch(`/api/approval?workspace_id=${workspaceId}`)
-      if (res.ok) {
-        const data = await res.json()
-        setPendingApprovalCount(data.requests?.length || 0)
-      }
+      try {
+        const res = await fetch(`/api/approval?workspace_id=${workspaceId}`)
+        if (res.ok) {
+          const data = await res.json()
+          setPendingApprovalCount(data.requests?.length || 0)
+        }
+      } catch {}
     }
     fetchCount()
     const interval = setInterval(fetchCount, 15000)

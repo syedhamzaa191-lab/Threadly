@@ -62,12 +62,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Admin only' }, { status: 403 })
   }
 
-  const { data: requests } = await admin
+  const { data: requests, error: tableError } = await admin
     .from('approval_requests')
     .select('*')
     .eq('workspace_id', workspaceId)
     .eq('status', 'pending')
     .order('created_at', { ascending: false })
+
+  // Table might not exist yet — return empty
+  if (tableError) return NextResponse.json({ requests: [] })
 
   return NextResponse.json({ requests: requests || [] })
 }
