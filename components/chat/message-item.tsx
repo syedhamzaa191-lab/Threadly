@@ -45,7 +45,7 @@ export function MessageItem({
       <div className="group relative px-4 md:px-8 hover:bg-white/[0.02] transition-colors duration-150">
         <div className="flex gap-3.5 py-[3px]">
           <div className="w-10 flex items-center justify-center shrink-0">
-            <span className="hidden group-hover:block text-[10px] text-white/25 font-medium tabular-nums">
+            <span className="hidden group-hover:block text-[10px] text-white/25 font-medium tabular-nums whitespace-nowrap">
               {timestamp}
             </span>
           </div>
