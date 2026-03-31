@@ -199,8 +199,20 @@ export function useCall(
     c.oniceconnectionstatechange = () => {
       const s = c.iceConnectionState; setState(p => ({ ...p, iceState: s }))
       if (s === 'connected' || s === 'completed') setState(p => { if (p.status !== 'connected') { startTimer(); return { ...p, status: 'connected', iceState: s } }; return { ...p, iceState: s } })
-      if (s === 'failed') endRef.current()
-      if (s === 'disconnected') setTimeout(() => { if (pcRef.current?.iceConnectionState === 'disconnected') endRef.current() }, 5000)
+      if (s === 'failed') {
+        // Try ICE restart before giving up
+        try { c.restartIce(); } catch {}
+        // If still failed after 8 seconds, end call
+        setTimeout(() => { if (pcRef.current?.iceConnectionState === 'failed') endRef.current() }, 8000)
+      }
+      if (s === 'disconnected') setTimeout(() => {
+        const state = pcRef.current?.iceConnectionState
+        if (state === 'disconnected' || state === 'failed') {
+          // Try ICE restart on disconnect too
+          try { pcRef.current?.restartIce(); } catch {}
+          setTimeout(() => { if (pcRef.current?.iceConnectionState !== 'connected' && pcRef.current?.iceConnectionState !== 'completed') endRef.current() }, 8000)
+        }
+      }, 3000)
     }
     return c
   }, [playRemote, startTimer])
