@@ -173,7 +173,7 @@ export default function WorkspaceListPage() {
                                 style={{ backgroundColor: ['#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6'][i % 5] }}
                               >
                                 {m.avatar_url ? (
-                                  <img src={m.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                                  <img src={m.avatar_url} alt="" className="w-full h-full rounded-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
                                 ) : (
                                   m.full_name.charAt(0).toUpperCase()
                                 )}

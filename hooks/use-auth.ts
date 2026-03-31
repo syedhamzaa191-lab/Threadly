@@ -53,7 +53,7 @@ export function useAuth() {
           setProfile(data)
         }
       } catch (err) {
-        console.error('Auth error:', err)
+        if (process.env.NODE_ENV === 'development') console.error('Auth error:', err)
       }
 
       setLoading(false)

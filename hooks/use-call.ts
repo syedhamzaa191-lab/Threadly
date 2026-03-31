@@ -186,7 +186,7 @@ export function useCall(
   }, [cleanup, flush])
 
   const makePc = useCallback((ice: RTCIceServer[]) => {
-    console.log('[Call] Creating PC with', ice.length, 'ICE servers, TURN:', ice.some((s: any) => s.urls?.toString().includes('turn')))
+    if (process.env.NODE_ENV === 'development') console.log('[Call] Creating PC with', ice.length, 'ICE servers, TURN:', ice.some((s: any) => s.urls?.toString().includes('turn')))
     const c = new RTCPeerConnection({ iceServers: ice })
     c.onicecandidate = e => {
       if (e.candidate) {
@@ -279,7 +279,7 @@ export function useCall(
     } catch (err: any) {
       if (err?.name === 'NotAllowedError') alert('Mic permission denied.')
       else if (err?.name === 'NotFoundError') alert('No mic found.')
-      else console.error('[Call] Start failed:', err)
+      else if (process.env.NODE_ENV === 'development') console.error('[Call] Start failed:', err)
       cleanup(); setState(initialState)
     }
   }, [userId, userName, userAvatar, makePc, joinRoom, cleanup, initAudio])
@@ -317,7 +317,7 @@ export function useCall(
       // Send answer instantly
       await room.send({ type: 'broadcast', event: 'answer', payload: { answer: conn.localDescription!.toJSON() } })
     } catch (err: any) {
-      console.error('[Call] Accept failed:', err)
+      if (process.env.NODE_ENV === 'development') console.error('[Call] Accept failed:', err)
       alert(err?.name === 'NotAllowedError' ? 'Mic permission denied.' : 'Call failed.')
       rejectCall()
     }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import Image from 'next/image'
 import { IconButton } from '@/components/ui/icon-button'
 import { Avatar } from '@/components/ui/avatar'
 
@@ -124,7 +125,7 @@ export function ProfileModal({ profile, onClose, onSave }: ProfileModalProps) {
             <div className="relative">
               <div className="w-28 h-28 rounded-3xl border-4 border-[#1e1a2b] overflow-hidden bg-[#252133] shadow-soft">
                 {previewAvatar ? (
-                  <img src={previewAvatar} alt={data.name} className="w-full h-full object-cover" />
+                  <Image src={previewAvatar} alt={data.name} width={112} height={112} className="w-full h-full object-cover" unoptimized />
                 ) : (
                   <div className="w-full h-full bg-white/[0.06] flex items-center justify-center">
                     <span className="text-3xl font-extrabold text-white/40">

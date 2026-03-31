@@ -15,7 +15,7 @@ interface InviteItem {
   expires_at: string
 }
 
-const LIVE_URL = 'https://threadly1-sigma.vercel.app'
+const LIVE_URL = process.env.NEXT_PUBLIC_LIVE_URL || 'https://threadly1-sigma.vercel.app'
 
 export function InviteModal({ workspaceId, onClose }: InviteModalProps) {
   const [email, setEmail] = useState('')

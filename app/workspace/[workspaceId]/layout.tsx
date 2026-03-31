@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, createContext, useContext } from 'react'
+import { useState, useRef, useCallback, useMemo, createContext, useContext } from 'react'
 import { useParams, useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { useWorkspace } from '@/hooks/use-workspace'
@@ -94,26 +94,26 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
     return null
   }
 
-  const channelList = channels.map((ch) => ({
+  const channelList = useMemo(() => channels.map((ch) => ({
     id: ch.id,
     name: ch.name,
     unread_count: unread[ch.id] || 0,
-  }))
+  })), [channels, unread])
 
-  const dmList = conversations.map((c) => ({
+  const dmList = useMemo(() => conversations.map((c) => ({
     id: c.id,
     name: c.otherUser.full_name,
     avatar: c.otherUser.avatar_url,
     lastMessage: c.lastMessage,
     unread_count: unread[c.id] || 0,
-  }))
+  })), [conversations, unread])
 
   const isAdmin = myRole === 'owner' || myRole === 'admin'
 
   const displayName = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User'
   const displayAvatar = profile?.avatar_url || user.user_metadata?.avatar_url || null
 
-  const profileData = {
+  const profileData = useMemo(() => ({
     name: displayName,
     email: user.email || '',
     role: myRole,
@@ -122,9 +122,9 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
     phone: '',
     location: '',
     department: '',
-  }
+  }), [displayName, user.email, myRole, displayAvatar])
 
-  const handleProfileSave = async (data: typeof profileData) => {
+  const handleProfileSave = useCallback(async (data: { name: string; email: string; role: string; avatar: string | null; bio: string; phone: string; location: string; department: string }) => {
     await supabase.from('profiles').upsert({
       id: user.id,
       full_name: data.name,
@@ -135,8 +135,9 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
       location: data.location,
       department: data.department,
     })
-    window.location.reload()
-  }
+    reload()
+    setShowProfile(false)
+  }, [user.id, user.email, supabase, reload])
 
   const handleNotificationClick = () => {
     if (newMessageAlert) {
