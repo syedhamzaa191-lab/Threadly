@@ -44,13 +44,8 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen bg-[#0a0612] flex items-center justify-center p-4 relative overflow-hidden">
-      <div className={`relative w-full max-w-[660px] transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
-        {/* Main card */}
-        <div className="bg-[#0a0612] rounded-[28px] border border-white/[0.07] shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden">
-          {/* Top gradient bar */}
-          <div className="h-1 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500" />
-
-          <div className="px-8 pt-10 pb-9 sm:px-12 sm:pt-12 sm:pb-10">
+      <div className={`relative w-full max-w-[480px] transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+          <div>
             {/* Logo + Brand */}
             <div className="flex items-center justify-center gap-3.5 mb-10">
               <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-[0_0_30px_rgba(139,92,246,0.35)]">
@@ -109,13 +104,12 @@ function LoginContent() {
             <p className="text-[11px] text-white/15 text-center">
               By signing in, you agree to our Terms of Service
             </p>
-          </div>
-        </div>
 
-        {/* Bottom tagline */}
-        <p className="text-center text-[11px] text-white/15 mt-6 font-medium">
-          Powered by Threadly &mdash; Built for teams
-        </p>
+            {/* Bottom tagline */}
+            <p className="text-center text-[11px] text-white/15 mt-8 font-medium">
+              Powered by Threadly &mdash; Built for teams
+            </p>
+          </div>
       </div>
     </div>
   )
