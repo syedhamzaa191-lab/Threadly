@@ -59,7 +59,7 @@ export async function GET(request: Request) {
           return NextResponse.redirect(`${origin}/workspace/${membership.workspace_id}/channel`)
         }
 
-        // Profile exists but no workspace membership — create approval request if not already pending
+        // Profile exists but no workspace membership — create approval request
         const { data: workspace } = await adminClient
           .from('workspaces')
           .select('id')
@@ -68,15 +68,15 @@ export async function GET(request: Request) {
 
         if (workspace) {
           // Check if approval request already exists
-          const { data: existingRequest } = await adminClient
+          const { data: existingRequest, error: checkErr } = await adminClient
             .from('approval_requests')
             .select('id')
             .eq('user_id', user.id)
-            .in('status', ['pending', 'approved'])
+            .eq('status', 'pending')
             .maybeSingle()
-            .catch(() => ({ data: null })) as any
 
-          if (!existingRequest) {
+          // Only create if no pending request exists (ignore query errors like table missing)
+          if (!existingRequest && !checkErr) {
             await adminClient.from('approval_requests').insert({
               user_id: user.id,
               email: user.email || '',
@@ -84,7 +84,19 @@ export async function GET(request: Request) {
               avatar_url: user.user_metadata?.avatar_url || null,
               workspace_id: workspace.id,
               status: 'pending',
-            }).catch(() => {})
+            })
+          }
+
+          // If table doesn't exist yet, still try to insert
+          if (checkErr) {
+            await adminClient.from('approval_requests').insert({
+              user_id: user.id,
+              email: user.email || '',
+              full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || '',
+              avatar_url: user.user_metadata?.avatar_url || null,
+              workspace_id: workspace.id,
+              status: 'pending',
+            })
           }
         }
 
