@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { useMessages } from '@/hooks/use-messages'
@@ -25,6 +25,32 @@ export default function ChannelPage() {
   const { messages, loading, sendMessage, deleteMessage, toggleReaction } = useMessages(channelId)
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null)
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return []
+    const q = searchQuery.toLowerCase()
+    return messages.filter((m) => m.content.toLowerCase().includes(q)).slice(0, 10)
+  }, [searchQuery, messages])
+
+  const scrollToMessage = (msgId: string) => {
+    setShowSearch(false)
+    setSearchQuery('')
+    setTimeout(() => {
+      const el = document.getElementById(`msg-${msgId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('bg-violet-500/10')
+        setTimeout(() => el.classList.remove('bg-violet-500/10'), 2000)
+      }
+    }, 100)
+  }
+
+  useEffect(() => {
+    if (showSearch) searchInputRef.current?.focus()
+  }, [showSearch])
 
   const threadParent = messages.find((m) => m.id === threadMessageId)
   const { replies, sendReply } = useThread(threadMessageId, channelId)
@@ -86,7 +112,55 @@ export default function ChannelPage() {
           channelName={channel?.name || 'channel'}
           memberCount={members.length}
           isAdmin={myRole === 'owner' || myRole === 'admin'}
+          showSearch={showSearch}
+          onSearchToggle={() => setShowSearch(!showSearch)}
         />
+        {/* Search bar */}
+        {showSearch && (
+          <div className="px-4 md:px-6 py-3 bg-[#252133] border-b border-white/[0.06] relative">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search in channel..."
+                className="w-full pl-10 pr-4 py-2.5 bg-white/[0.06] rounded-xl text-[13px] text-white/80 placeholder:text-white/25 border border-white/[0.08] focus:border-violet-500/30 focus:bg-white/[0.08] transition-all outline-none"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {searchQuery.trim() && (
+              <div className="mt-2 max-h-[240px] overflow-y-auto scrollbar-dark rounded-xl border border-white/[0.06] bg-[#1e1a2b]">
+                {searchResults.length === 0 ? (
+                  <p className="text-center text-white/25 text-[13px] py-4">No messages found</p>
+                ) : (
+                  searchResults.map((msg) => (
+                    <button
+                      key={msg.id}
+                      onClick={() => scrollToMessage(msg.id)}
+                      className="w-full text-left px-4 py-3 hover:bg-white/[0.04] transition-colors border-b border-white/[0.04] last:border-0"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[12px] font-bold text-white/60">{msg.profiles?.full_name || 'Unknown'}</span>
+                        <span className="text-[10px] text-white/20">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="text-[13px] text-white/40 truncate">{msg.content}</p>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
         {loading ? (
           <div className="flex-1 flex items-end justify-center pb-4">
             <div className="flex gap-1.5 py-3">

@@ -42,7 +42,7 @@ export function MessageItem({
 
   if (isGrouped) {
     return (
-      <div className="group relative px-4 md:px-8 hover:bg-white/[0.02] transition-colors duration-150">
+      <div id={`msg-${id}`} className="group relative px-4 md:px-8 hover:bg-white/[0.02] transition-all duration-300">
         <div className="flex gap-3.5 py-[3px]">
           <div className="w-10 flex items-center justify-center shrink-0">
             <span className="hidden group-hover:block text-[10px] text-white/25 font-medium tabular-nums whitespace-nowrap">
@@ -70,7 +70,7 @@ export function MessageItem({
   }
 
   return (
-    <div className="group relative px-4 md:px-8 hover:bg-white/[0.02] transition-colors duration-150">
+    <div id={`msg-${id}`} className="group relative px-4 md:px-8 hover:bg-white/[0.02] transition-all duration-300">
       <div className="flex gap-3.5 pt-5 pb-1">
         <button onClick={() => senderId && onUserClick?.(senderId)} className="shrink-0 mt-0.5 cursor-pointer">
           <Avatar name={senderName} src={senderAvatar} size="md" />

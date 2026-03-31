@@ -5,9 +5,11 @@ interface ChatHeaderProps {
   memberCount?: number
   isAdmin?: boolean
   onManageMembers?: () => void
+  showSearch?: boolean
+  onSearchToggle?: () => void
 }
 
-export function ChatHeader({ channelName, memberCount, isAdmin, onManageMembers }: ChatHeaderProps) {
+export function ChatHeader({ channelName, memberCount, isAdmin, onManageMembers, showSearch, onSearchToggle }: ChatHeaderProps) {
   return (
     <div className="px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-between bg-[#252133] border-b border-white/[0.06]">
       <div className="flex items-center gap-3">
@@ -33,14 +35,12 @@ export function ChatHeader({ channelName, memberCount, isAdmin, onManageMembers 
             Manage
           </button>
         )}
-        <button className="w-9 h-9 rounded-lg flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/[0.06] transition-all duration-150">
+        <button
+          onClick={onSearchToggle}
+          className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-150 ${showSearch ? 'text-violet-400 bg-violet-500/10' : 'text-white/30 hover:text-white/70 hover:bg-white/[0.06]'}`}
+        >
           <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </button>
-        <button className="w-9 h-9 rounded-lg flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/[0.06] transition-all duration-150">
-          <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
           </svg>
         </button>
       </div>
