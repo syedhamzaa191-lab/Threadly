@@ -16,6 +16,19 @@ export function MessageToolbar({ isOwnMessage, onReact, onThreadClick, onDelete 
   const [showMore, setShowMore] = useState(false)
   const [openUpward, setOpenUpward] = useState(true)
   const btnRef = useRef<HTMLButtonElement>(null)
+  const moreRef = useRef<HTMLDivElement>(null)
+
+  // Close delete menu on outside click
+  useEffect(() => {
+    if (!showMore) return
+    function handleClick(e: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setShowMore(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showMore])
 
   // Detect if near top of screen — open picker downward instead
   useEffect(() => {
@@ -58,7 +71,7 @@ export function MessageToolbar({ isOwnMessage, onReact, onThreadClick, onDelete 
         </svg>
       </button>
       {isOwnMessage && (
-        <div className="relative">
+        <div className="relative" ref={moreRef}>
           <button
             onClick={() => { setShowMore(!showMore); setShowEmoji(false) }}
             className={`w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-all duration-150 ${showMore ? 'text-violet-400 bg-white/[0.08]' : 'text-white/30 hover:text-white/70'}`}
