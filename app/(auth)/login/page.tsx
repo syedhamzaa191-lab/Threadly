@@ -3,7 +3,6 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ParticleField } from '@/components/ui/particles'
 
 const ERROR_MESSAGES: Record<string, string> = {
   account_deactivated: 'Your account has been deactivated. Contact your admin.',
@@ -42,13 +41,14 @@ function LoginContent() {
     <div className="min-h-screen flex">
       {/* Left side — premium branding */}
       <div className="hidden xl:flex xl:w-1/2 bg-[#0c0618] relative overflow-hidden">
-        {/* Subtle gradient base */}
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-900/30 via-[#0c0618] to-purple-900/20" />
+        {/* Elegant gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-950/60 via-[#0c0618] to-purple-950/40" />
 
-        {/* Particle animation — on top */}
-        <div className="absolute inset-0 z-[1]">
-          <ParticleField />
-        </div>
+        {/* Subtle dot pattern */}
+        <div className="absolute inset-0 opacity-[0.04]" style={{
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.5) 1px, transparent 0)',
+          backgroundSize: '28px 28px',
+        }} />
 
         <div className="relative flex flex-col justify-between p-14 w-full z-10">
           {/* Logo */}
