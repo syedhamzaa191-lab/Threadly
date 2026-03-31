@@ -68,7 +68,13 @@ export function useUnread(workspaceId: string, activeChannelId: string | undefin
           if (msg.parent_message_id) return
           if (msg.channel_id === activeRef.current) return
 
-          // Check cache first, only query DB if not cached
+          // Increment unread immediately — don't wait for cache/DB lookup
+          setUnread((prev) => ({
+            ...prev,
+            [msg.channel_id]: (prev[msg.channel_id] || 0) + 1,
+          }))
+
+          // Verify this channel belongs to current workspace (async, non-blocking)
           let wsId = channelWorkspaceCache[msg.channel_id]
           if (!wsId) {
             const { data: ch } = await supabase
@@ -76,18 +82,21 @@ export function useUnread(workspaceId: string, activeChannelId: string | undefin
               .select('workspace_id')
               .eq('id', msg.channel_id)
               .single()
-            if (!ch) return
-            wsId = ch.workspace_id
-            channelWorkspaceCache[msg.channel_id] = wsId
+            if (ch) {
+              wsId = ch.workspace_id
+              channelWorkspaceCache[msg.channel_id] = wsId
+            }
           }
 
-          if (wsId !== workspaceId) return
-
-          // Increment unread immediately (don't wait for profile fetch)
-          setUnread((prev) => ({
-            ...prev,
-            [msg.channel_id]: (prev[msg.channel_id] || 0) + 1,
-          }))
+          // If channel is from different workspace, undo the unread increment
+          if (wsId && wsId !== workspaceId) {
+            setUnread((prev) => {
+              const next = { ...prev }
+              delete next[msg.channel_id]
+              return next
+            })
+            return
+          }
 
           // Get sender name for notification toast
           const { data: profile } = await supabase
