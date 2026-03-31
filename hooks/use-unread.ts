@@ -33,7 +33,7 @@ export function useUnread(workspaceId: string, activeChannelId: string | undefin
   // Auto-dismiss alert
   useEffect(() => {
     if (newMessageAlert) {
-      const timer = setTimeout(() => setNewMessageAlert(null), 4000)
+      const timer = setTimeout(() => setNewMessageAlert(null), 6000)
       return () => clearTimeout(timer)
     }
   }, [newMessageAlert])
@@ -83,18 +83,18 @@ export function useUnread(workspaceId: string, activeChannelId: string | undefin
 
           if (wsId !== workspaceId) return
 
-          // Get sender name from cache or fetch
+          // Increment unread immediately (don't wait for profile fetch)
+          setUnread((prev) => ({
+            ...prev,
+            [msg.channel_id]: (prev[msg.channel_id] || 0) + 1,
+          }))
+
+          // Get sender name for notification toast
           const { data: profile } = await supabase
             .from('profiles')
             .select('full_name')
             .eq('id', msg.sender_id)
             .single()
-
-          // Batch state updates
-          setUnread((prev) => ({
-            ...prev,
-            [msg.channel_id]: (prev[msg.channel_id] || 0) + 1,
-          }))
 
           setNewMessageAlert({
             channelId: msg.channel_id,
