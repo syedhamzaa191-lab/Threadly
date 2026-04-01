@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { useMessages } from '@/hooks/use-messages'
@@ -32,13 +32,19 @@ export default function ChannelPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return []
-    const q = searchQuery.toLowerCase()
-    return messages.filter((m) => m.content.toLowerCase().includes(q)).slice(0, 10)
-  }, [searchQuery, messages])
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery), 200)
+    return () => clearTimeout(t)
+  }, [searchQuery])
 
-  const scrollToMessage = (msgId: string) => {
+  const searchResults = useMemo(() => {
+    if (!debouncedQuery.trim()) return []
+    const q = debouncedQuery.toLowerCase()
+    return messages.filter((m) => m.content.toLowerCase().includes(q)).slice(0, 10)
+  }, [debouncedQuery, messages])
+
+  const scrollToMessage = useCallback((msgId: string) => {
     setShowSearch(false)
     setSearchQuery('')
     setTimeout(() => {
@@ -49,7 +55,7 @@ export default function ChannelPage() {
         setTimeout(() => el.classList.remove('bg-violet-500/10'), 2000)
       }
     }, 100)
-  }
+  }, [])
 
   useEffect(() => {
     if (showSearch) searchInputRef.current?.focus()
