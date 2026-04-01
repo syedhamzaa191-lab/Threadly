@@ -382,7 +382,8 @@ export function useCall(
 
   const endCall = useCallback(() => {
     roomCh.current?.send({ type: 'broadcast', event: 'end', payload: {} })
-    if (!logged.current && isCaller.current && infoRef.current && logCb.current) { logged.current = true; logCb.current(infoRef.current.type, durRef.current, infoRef.current.name) }
+    // Both caller and receiver can log — caller logs immediately, receiver logs as fallback
+    if (!logged.current && infoRef.current && logCb.current) { logged.current = true; logCb.current(infoRef.current.type, durRef.current, infoRef.current.name) }
     cleanup()
     setState(p => ({ ...p, status: 'ended' }))
     setTimeout(() => { setState(initialState); logged.current = false; isCaller.current = false; infoRef.current = null }, 2000)

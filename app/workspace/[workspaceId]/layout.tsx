@@ -274,7 +274,16 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
           callerName={callState.remoteUserName || 'Unknown'}
           callerAvatar={callState.remoteUserAvatar}
           type={callState.type}
-          onAccept={acceptCall}
+          onAccept={() => {
+            // Capture DM channel for receiver's call log
+            let dmId = activeDmId || null
+            if (!dmId && callState.remoteUserName) {
+              const dm = conversations.find((c) => c.otherUser.full_name === callState.remoteUserName)
+              if (dm) dmId = dm.id
+            }
+            callDmChannelRef.current = dmId
+            acceptCall()
+          }}
           onReject={rejectCall}
           onRejectWithMessage={(msg) => {
             // Reject IMMEDIATELY, send message in background
