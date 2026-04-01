@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { useMessages } from '@/hooks/use-messages'
 import { useThread } from '@/hooks/use-thread'
@@ -18,6 +18,7 @@ import { ReactionGroup } from '@/components/chat/reaction-display'
 export default function ChannelPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const channelId = params.channelId as string
   const workspaceId = params.workspaceId as string
 
@@ -26,6 +27,12 @@ export default function ChannelPage() {
   const { members, myRole } = useWorkspace(workspaceId)
   const { messages, loading, sendMessage, deleteMessage, toggleReaction } = useMessages(channelId)
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null)
+
+  // Auto-open thread from URL param (notification click)
+  useEffect(() => {
+    const threadParam = searchParams.get('thread')
+    if (threadParam) setThreadMessageId(threadParam)
+  }, [searchParams])
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
   const [forwardMsg, setForwardMsg] = useState<{ content: string; senderName: string } | null>(null)
   const [showSearch, setShowSearch] = useState(false)
@@ -206,6 +213,8 @@ export default function ChannelPage() {
             const profile = user ? { id: user.id, full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'You', avatar_url: user.user_metadata?.avatar_url || null } : undefined
             await sendMessage(content, profile)
           }}
+          members={members.map(m => ({ id: m.user_id, full_name: m.profiles?.full_name || 'Unknown', avatar_url: m.profiles?.avatar_url || null }))}
+          currentUserId={user?.id}
         />
       </main>
 
@@ -230,8 +239,11 @@ export default function ChannelPage() {
           replies={formattedReplies}
           onClose={() => setThreadMessageId(null)}
           onSendReply={async (content) => {
-            await sendReply(content)
+            const profile = user ? { id: user.id, full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'You', avatar_url: user.user_metadata?.avatar_url || null } : undefined
+            await sendReply(content, profile)
           }}
+          members={members.map(m => ({ id: m.user_id, full_name: m.profiles?.full_name || 'Unknown', avatar_url: m.profiles?.avatar_url || null }))}
+          currentUserId={user?.id}
         />
       )}
     </>

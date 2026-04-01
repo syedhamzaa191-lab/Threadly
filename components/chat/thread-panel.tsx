@@ -1,6 +1,7 @@
 'use client'
 
 import { Avatar } from '@/components/ui/avatar'
+import { MessageContent } from './message-content'
 import { MessageList } from './message-list'
 import { MessageInput } from './message-input'
 
@@ -17,9 +18,11 @@ interface ThreadPanelProps {
   replies: Message[]
   onClose: () => void
   onSendReply: (content: string) => void
+  members?: { id: string; full_name: string; avatar_url: string | null }[]
+  currentUserId?: string
 }
 
-export function ThreadPanel({ parentMessage, replies, onClose, onSendReply }: ThreadPanelProps) {
+export function ThreadPanel({ parentMessage, replies, onClose, onSendReply, members, currentUserId }: ThreadPanelProps) {
   return (
     <div className="w-full sm:w-[400px] fixed sm:relative inset-0 sm:inset-auto z-[50] sm:z-auto h-full flex flex-col border-l border-white/[0.06] bg-[#1e1a2b] animate-slide-in">
       <div className="px-5 py-3.5 flex items-center justify-between border-b border-white/[0.06] bg-[#252133]">
@@ -51,7 +54,7 @@ export function ThreadPanel({ parentMessage, replies, onClose, onSendReply }: Th
                 {new Date(parentMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
-            <p className="text-[14px] text-white/80 mt-1 whitespace-pre-wrap leading-relaxed">{parentMessage.content}</p>
+            <div className="text-[14px] text-white/80 mt-1 leading-relaxed"><MessageContent content={parentMessage.content} /></div>
           </div>
         </div>
       </div>
@@ -65,7 +68,7 @@ export function ThreadPanel({ parentMessage, replies, onClose, onSendReply }: Th
       </div>
 
       <MessageList messages={replies} />
-      <MessageInput placeholder="Reply in thread..." onSend={onSendReply} />
+      <MessageInput placeholder="Reply in thread..." onSend={onSendReply} members={members} currentUserId={currentUserId} />
     </div>
   )
 }

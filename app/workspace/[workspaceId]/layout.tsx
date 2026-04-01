@@ -10,6 +10,8 @@ import { useUnread } from '@/hooks/use-unread'
 import { useCall, CallType } from '@/hooks/use-call'
 import { Sidebar } from '@/components/layout/sidebar'
 import { ApprovalPanel } from '@/components/approval/approval-panel'
+import { NotificationPanel } from '@/components/notifications/notification-panel'
+import { ThreadsPanel } from '@/components/notifications/threads-panel'
 import { ProfileModal } from '@/components/profile/profile-modal'
 import { NotificationToast } from '@/components/ui/notification-toast'
 import { CallModal } from '@/components/call/call-modal'
@@ -29,9 +31,13 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
   const workspaceId = params.workspaceId as string
   const [showApprovals, setShowApprovals] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [showThreads, setShowThreads] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
+  const [mentionCount, setMentionCount] = useState(0)
+  const [threadCount, setThreadCount] = useState(0)
   const [initialLoaded, setInitialLoaded] = useState(false)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -132,6 +138,25 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
     reload()
     setShowProfile(false)
   }, [user, supabase, reload])
+
+  // Fetch unread mention + thread counts
+  const fetchMentionCount = useCallback(async () => {
+    if (!user?.id) return
+    try {
+      const [mentionRes, threadRes] = await Promise.all([
+        supabase.from('mentions').select('id', { count: 'exact', head: true }).eq('mentioned_user_id', user.id).eq('is_read', false).eq('type', 'mention'),
+        supabase.from('mentions').select('id', { count: 'exact', head: true }).eq('mentioned_user_id', user.id).eq('is_read', false).eq('type', 'thread'),
+      ])
+      setMentionCount(mentionRes.count || 0)
+      setThreadCount(threadRes.count || 0)
+    } catch {}
+  }, [user?.id, supabase])
+
+  useEffect(() => {
+    fetchMentionCount()
+    const interval = setInterval(fetchMentionCount, 10000)
+    return () => clearInterval(interval)
+  }, [fetchMentionCount])
 
   // Fetch pending approval count for admins
   useEffect(() => {
@@ -235,6 +260,10 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
         } : undefined}
         onApprovalsClick={isAdmin ? () => setShowApprovals(true) : undefined}
         pendingApprovalCount={isAdmin ? pendingApprovalCount : 0}
+        onNotificationsClick={() => setShowNotifications(true)}
+        notificationCount={mentionCount}
+        onThreadsClick={() => setShowThreads(true)}
+        threadCount={threadCount}
         onProfileClick={() => setShowProfile(true)}
         onMembersClick={() => { router.push(`/workspace/${workspaceId}/members`); setSidebarOpen(false) }}
         onHomeClick={() => { router.push(`/workspace/${workspaceId}`); setSidebarOpen(false) }}
@@ -336,6 +365,30 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
       )}
 
       {showApprovals && <ApprovalPanel workspaceId={workspaceId} onClose={() => setShowApprovals(false)} onApproved={reload} />}
+      {showThreads && user && (
+        <ThreadsPanel
+          currentUserId={user.id}
+          onClose={() => setShowThreads(false)}
+          onNavigate={(channelId, isDm, parentMessageId) => {
+            if (isDm) router.push(`/workspace/${workspaceId}/dm/${channelId}?thread=${parentMessageId}`)
+            else router.push(`/workspace/${workspaceId}/channel/${channelId}?thread=${parentMessageId}`)
+            setSidebarOpen(false)
+          }}
+        />
+      )}
+      {showNotifications && user && (
+        <NotificationPanel
+          workspaceId={workspaceId}
+          currentUserId={user.id}
+          onClose={() => setShowNotifications(false)}
+          onReadAll={fetchMentionCount}
+          onNavigate={(channelId, isDm, parentMessageId) => {
+            if (isDm) router.push(`/workspace/${workspaceId}/dm/${channelId}${parentMessageId ? `?thread=${parentMessageId}` : ''}`)
+            else router.push(`/workspace/${workspaceId}/channel/${channelId}${parentMessageId ? `?thread=${parentMessageId}` : ''}`)
+            setSidebarOpen(false)
+          }}
+        />
+      )}
       {showProfile && (
         <ProfileModal
           profile={profileData}

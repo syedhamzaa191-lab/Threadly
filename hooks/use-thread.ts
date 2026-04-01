@@ -106,7 +106,10 @@ export function useThread(threadId: string | null, channelId: string) {
           if (enriched[0]) {
             setReplies((prev) => {
               if (prev.some((r) => r.id === enriched[0].id)) return prev
-              return [...prev, { ...enriched[0], reactions: [] }]
+              // Remove temp optimistic reply from same sender
+              const tempIdx = prev.findIndex((r) => r.id.startsWith('temp-') && r.sender_id === enriched[0].sender_id)
+              const withoutTemp = tempIdx >= 0 ? [...prev.slice(0, tempIdx), ...prev.slice(tempIdx + 1)] : prev
+              return [...withoutTemp, { ...enriched[0], reactions: [] }]
             })
           }
         }
@@ -118,8 +121,23 @@ export function useThread(threadId: string | null, channelId: string) {
     }
   }, [threadId, enrichWithProfiles])
 
-  const sendReply = async (content: string) => {
+  const sendReply = async (content: string, currentUser?: { id: string; full_name: string; avatar_url: string | null }) => {
     if (!threadId) return { error: new Error('No thread selected') }
+
+    // Optimistic: show reply instantly
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    if (currentUser) {
+      setReplies((prev) => [...prev, {
+        id: tempId,
+        content,
+        channel_id: channelId,
+        sender_id: currentUser.id,
+        parent_message_id: threadId,
+        created_at: new Date().toISOString(),
+        profiles: { id: currentUser.id, full_name: currentUser.full_name, avatar_url: currentUser.avatar_url },
+        reactions: [],
+      }])
+    }
 
     const res = await fetch('/api/messages', {
       method: 'POST',
@@ -131,6 +149,8 @@ export function useThread(threadId: string | null, channelId: string) {
       }),
     })
     if (!res.ok) {
+      // Remove optimistic reply on failure
+      setReplies((prev) => prev.filter((r) => r.id !== tempId))
       const data = await res.json()
       return { error: new Error(data.error) }
     }

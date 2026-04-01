@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { Avatar } from '@/components/ui/avatar'
 import { MessageItem } from './message-item'
 import { ReactionGroup } from './reaction-display'
 
@@ -109,6 +110,8 @@ export function MessageList({ messages, currentUserId, onThreadClick, onReact, o
               {isCallMessage ? (
                 <CallLogItem
                   content={msg.content}
+                  senderName={msg.sender_name}
+                  senderAvatar={msg.sender_avatar}
                   timestamp={formatTime(msg.created_at)}
                 />
               ) : (
@@ -139,32 +142,45 @@ export function MessageList({ messages, currentUserId, onThreadClick, onReact, o
   )
 }
 
-function CallLogItem({ content, timestamp }: {
+function CallLogItem({ content, senderName, senderAvatar, timestamp }: {
   content: string
+  senderName: string
+  senderAvatar?: string | null
   timestamp: string
 }) {
   const displayContent = content.replace('[CALL] ', '')
   const isVideo = content.includes('📹') || content.includes('Video call')
   return (
     <div className="px-4 md:px-8 py-2">
-      <div className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] rounded-xl border border-white/[0.06]">
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-          isVideo ? 'bg-blue-500/15 text-blue-400' : 'bg-green-500/15 text-green-400'
-        }`}>
-          {isVideo ? (
-            <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          ) : (
-            <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-            </svg>
-          )}
+      <div className="flex items-start gap-3.5">
+        {/* Sender avatar */}
+        <div className="shrink-0 mt-0.5">
+          <Avatar name={senderName} src={senderAvatar} size="md" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] text-white/60">{displayContent}</p>
+          {/* Sender name + time */}
+          <div className="flex items-baseline gap-2.5 mb-1.5">
+            <span className="text-[14px] font-bold text-white">{senderName}</span>
+            <span className="text-[11px] text-white/25 font-medium tabular-nums">{timestamp}</span>
+          </div>
+          {/* Call card */}
+          <div className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] rounded-xl border border-white/[0.06] inline-flex">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+              isVideo ? 'bg-blue-500/15 text-blue-400' : 'bg-green-500/15 text-green-400'
+            }`}>
+              {isVideo ? (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+              )}
+            </div>
+            <p className="text-[13px] text-white/60">{displayContent}</p>
+          </div>
         </div>
-        <span className="text-[10px] text-white/20 tabular-nums shrink-0">{timestamp}</span>
       </div>
     </div>
   )

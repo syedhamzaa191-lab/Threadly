@@ -52,7 +52,8 @@ export function useDirectMessages(workspaceId: string, currentUserId: string | u
         supabase.from('messages').select('channel_id, content, created_at')
           .in('channel_id', channelIds)
           .is('parent_message_id', null)
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(channelIds.length * 2),
       ])
 
       const profiles = profilesResult.data || []

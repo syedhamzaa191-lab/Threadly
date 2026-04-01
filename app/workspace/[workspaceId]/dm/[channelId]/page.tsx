@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { useMessages } from '@/hooks/use-messages'
 import { useThread } from '@/hooks/use-thread'
+import { useWorkspace } from '@/hooks/use-workspace'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { ThreadPanel } from '@/components/chat/thread-panel'
@@ -18,6 +19,7 @@ import { useCallContext } from '../../layout'
 export default function DmPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const channelId = params.channelId as string
   const workspaceId = params.workspaceId as string
   const supabaseRef = useRef(createClient())
@@ -25,8 +27,15 @@ export default function DmPage() {
 
   const { user } = useAuth()
   const { startCall } = useCallContext()
+  const { members } = useWorkspace(workspaceId)
   const { messages, loading, sendMessage, deleteMessage, toggleReaction } = useMessages(channelId)
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null)
+
+  // Auto-open thread from URL param (notification click)
+  useEffect(() => {
+    const threadParam = searchParams.get('thread')
+    if (threadParam) setThreadMessageId(threadParam)
+  }, [searchParams])
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
   const [otherUser, setOtherUser] = useState<{ id: string; full_name: string; avatar_url: string | null } | null>(null)
   const [forwardMsg, setForwardMsg] = useState<{ content: string; senderName: string } | null>(null)
@@ -68,9 +77,18 @@ export default function DmPage() {
   const threadParent = messages.find((m) => m.id === threadMessageId)
   const { replies, sendReply } = useThread(threadMessageId, channelId)
 
+  const otherUserCache = useRef<Record<string, any>>({})
+
   useEffect(() => {
     async function loadOtherUser() {
       if (!user) return
+
+      // Use cache if available
+      if (otherUserCache.current[channelId]) {
+        setOtherUser(otherUserCache.current[channelId])
+        return
+      }
+
       const { data: channel } = await supabase
         .from('channels')
         .select('dm_user_ids')
@@ -78,7 +96,6 @@ export default function DmPage() {
         .single()
 
       if (!channel) {
-        // Invalid DM channel — redirect back
         router.push(`/workspace/${workspaceId}`)
         return
       }
@@ -90,6 +107,7 @@ export default function DmPage() {
           .select('id, full_name, avatar_url')
           .eq('id', otherId)
           .single()
+        if (profile) otherUserCache.current[channelId] = profile
         setOtherUser(profile)
       }
     }
@@ -274,6 +292,8 @@ export default function DmPage() {
             const profile = user ? { id: user.id, full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'You', avatar_url: user.user_metadata?.avatar_url || null } : undefined
             await sendMessage(content, profile)
           }}
+          members={members.map(m => ({ id: m.user_id, full_name: m.profiles?.full_name || 'Unknown', avatar_url: m.profiles?.avatar_url || null }))}
+          currentUserId={user?.id}
         />
       </main>
 
@@ -298,8 +318,11 @@ export default function DmPage() {
           replies={formattedReplies}
           onClose={() => setThreadMessageId(null)}
           onSendReply={async (content) => {
-            await sendReply(content)
+            const profile = user ? { id: user.id, full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'You', avatar_url: user.user_metadata?.avatar_url || null } : undefined
+            await sendReply(content, profile)
           }}
+          members={members.map(m => ({ id: m.user_id, full_name: m.profiles?.full_name || 'Unknown', avatar_url: m.profiles?.avatar_url || null }))}
+          currentUserId={user?.id}
         />
       )}
     </>

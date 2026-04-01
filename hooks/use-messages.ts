@@ -59,20 +59,6 @@ export function useMessages(channelId: string) {
     }))
   }, [supabase])
 
-  const fetchReactions = useCallback(async (messageIds: string[]) => {
-    if (messageIds.length === 0) return {}
-    const { data } = await supabase
-      .from('reactions')
-      .select('message_id, emoji, user_id')
-      .in('message_id', messageIds)
-
-    const map: Record<string, ReactionData[]> = {}
-    for (const r of data || []) {
-      if (!map[r.message_id]) map[r.message_id] = []
-      map[r.message_id].push({ emoji: r.emoji, user_id: r.user_id })
-    }
-    return map
-  }, [supabase])
 
   const fetchMessages = useCallback(async () => {
     if (!channelId) return
@@ -84,18 +70,37 @@ export function useMessages(channelId: string) {
       .is('parent_message_id', null)
       .order('created_at', { ascending: true })
 
-    const enriched = await enrichWithProfiles(data || [])
-    const messageIds = enriched.map((m: any) => m.id)
-    const reactionsMap = await fetchReactions(messageIds)
+    if (!data || data.length === 0) { setMessages([]); setLoading(false); return }
 
-    const withReactions = enriched.map((m: any) => ({
+    const messageIds = data.map((m: any) => m.id)
+    const senderIds = Array.from(new Set(data.map((m: any) => m.sender_id)))
+    const uncachedIds = senderIds.filter((id) => !profileCache[id])
+
+    // Parallel: fetch profiles + reactions at same time
+    const [profilesResult, reactionsResult] = await Promise.all([
+      uncachedIds.length > 0
+        ? supabase.from('profiles').select('id, full_name, avatar_url').in('id', uncachedIds)
+        : Promise.resolve({ data: [] }),
+      supabase.from('reactions').select('message_id, emoji, user_id').in('message_id', messageIds),
+    ])
+
+    for (const p of (profilesResult as any).data || []) { profileCache[p.id] = p }
+
+    const reactionsMap: Record<string, { emoji: string; user_id: string }[]> = {}
+    for (const r of (reactionsResult as any).data || []) {
+      if (!reactionsMap[r.message_id]) reactionsMap[r.message_id] = []
+      reactionsMap[r.message_id].push({ emoji: r.emoji, user_id: r.user_id })
+    }
+
+    const enriched = data.map((m: any) => ({
       ...m,
+      profiles: profileCache[m.sender_id] || null,
       reactions: reactionsMap[m.id] || [],
     }))
 
-    setMessages(withReactions)
+    setMessages(enriched)
     setLoading(false)
-  }, [channelId, enrichWithProfiles, fetchReactions, supabase])
+  }, [channelId, supabase])
 
   useEffect(() => {
     if (!channelId) return
@@ -118,13 +123,17 @@ export function useMessages(channelId: string) {
         async (payload) => {
           const newMsg = payload.new as any
           if (newMsg.parent_message_id) {
-            setMessages((prev) =>
-              prev.map((m) =>
+            // Increment reply count on parent message — shows "X replies" button
+            setMessages((prev) => {
+              const updated = prev.map((m) =>
                 m.id === newMsg.parent_message_id
-                  ? { ...m, reply_count: (m.reply_count || 0) + 1 }
+                  ? { ...m, reply_count: Math.max((m.reply_count || 0) + 1, 1) }
                   : m
               )
-            )
+              // Only update if parent found
+              if (updated.some((m) => m.id === newMsg.parent_message_id)) return updated
+              return prev
+            })
             return
           }
           const enriched = await enrichWithProfiles([newMsg])

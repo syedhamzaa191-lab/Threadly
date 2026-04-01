@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   if (parent_message_id) {
     const { data: parentMsg } = await adminClient
       .from('messages')
-      .select('id, channel_id, reply_count')
+      .select('id, channel_id, sender_id, reply_count')
       .eq('id', parent_message_id)
       .single()
 
@@ -85,14 +85,10 @@ export async function POST(request: Request) {
     }
 
     // Increment reply_count on parent message
-    try {
-      await adminClient.rpc('increment_reply_count', { msg_id: parent_message_id })
-    } catch {
-      await adminClient
-        .from('messages')
-        .update({ reply_count: (parentMsg as any).reply_count ? (parentMsg as any).reply_count + 1 : 1 })
-        .eq('id', parent_message_id)
-    }
+    await adminClient
+      .from('messages')
+      .update({ reply_count: ((parentMsg as any).reply_count || 0) + 1 })
+      .eq('id', parent_message_id)
   }
 
   // Save message — Supabase Realtime will broadcast automatically
@@ -109,6 +105,40 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Thread reply notification — notify parent message sender
+  if (message && parent_message_id) {
+    const parentSenderId = (await adminClient.from('messages').select('sender_id').eq('id', parent_message_id).single()).data?.sender_id
+    if (parentSenderId && parentSenderId !== user.id) {
+      await adminClient.from('mentions').insert({
+        message_id: message.id,
+        channel_id,
+        sender_id: user.id,
+        mentioned_user_id: parentSenderId,
+        content: content.replace(/<@[a-f0-9-]+\|([^>]+)>/g, '@$1').trim(),
+        type: 'thread',
+        parent_message_id,
+      })
+    }
+  }
+
+  // Detect @mentions in format <@userId|name> and save to mentions table
+  if (message) {
+    const mentionRegex = /<@([a-f0-9-]+)\|([^>]+)>/g
+    let mentionMatch
+    while ((mentionMatch = mentionRegex.exec(content)) !== null) {
+      const mentionedUserId = mentionMatch[1]
+      if (mentionedUserId !== user.id) {
+        await adminClient.from('mentions').insert({
+          message_id: message.id,
+          channel_id,
+          sender_id: user.id,
+          mentioned_user_id: mentionedUserId,
+          content: content.replace(/<@[a-f0-9-]+\|([^>]+)>/g, '@$1').trim(),
+        })
+      }
+    }
   }
 
   return NextResponse.json({ message })
