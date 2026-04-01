@@ -179,8 +179,16 @@ export function useCall(
       if (hasRD.current) try { await pcRef.current.addIceCandidate(new RTCIceCandidate(payload.candidate)) } catch {}
       else queued.current.push(payload.candidate)
     })
-    ch.on('broadcast', { event: 'end' }, () => { cleanup(); setState(p => ({ ...p, status: 'ended' })); setTimeout(() => setState(initialState), 2000) })
-    ch.on('broadcast', { event: 'reject' }, () => { cleanup(); setState(p => ({ ...p, status: 'ended' })); setTimeout(() => setState(initialState), 2000) })
+    ch.on('broadcast', { event: 'end' }, () => {
+      // Other side ended — caller logs the call
+      if (!logged.current && isCaller.current && infoRef.current && logCb.current) { logged.current = true; logCb.current(infoRef.current.type, durRef.current, infoRef.current.name) }
+      cleanup(); setState(p => ({ ...p, status: 'ended' })); setTimeout(() => { setState(initialState); logged.current = false; isCaller.current = false; infoRef.current = null }, 2000)
+    })
+    ch.on('broadcast', { event: 'reject' }, () => {
+      // Call rejected — caller logs as unanswered
+      if (!logged.current && isCaller.current && infoRef.current && logCb.current) { logged.current = true; logCb.current(infoRef.current.type, 0, infoRef.current.name) }
+      cleanup(); setState(p => ({ ...p, status: 'ended' })); setTimeout(() => { setState(initialState); logged.current = false; isCaller.current = false; infoRef.current = null }, 2000)
+    })
 
     return new Promise(r => ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') { roomCh.current = ch; r(ch) } }))
   }, [cleanup, flush])
@@ -230,9 +238,11 @@ export function useCall(
     })
     // Listen for reject from receiver (sent before they join room)
     ch.on('broadcast', { event: 'incoming-reject' }, () => {
+      // Caller logs rejected call
+      if (!logged.current && isCaller.current && infoRef.current && logCb.current) { logged.current = true; logCb.current(infoRef.current.type, 0, infoRef.current.name) }
       cleanup()
       setState(p => ({ ...p, status: 'ended' }))
-      setTimeout(() => setState(initialState), 2000)
+      setTimeout(() => { setState(initialState); logged.current = false; isCaller.current = false; infoRef.current = null }, 2000)
     })
     ch.subscribe()
     return () => { sb.current.removeChannel(ch) }
@@ -283,7 +293,13 @@ export function useCall(
       // Auto-end after 45s if no answer
       setTimeout(() => {
         setState(p => {
-          if (p.status === 'calling') { room?.send({ type: 'broadcast', event: 'end', payload: {} }); cleanup(); return { ...p, status: 'ended' } }
+          if (p.status === 'calling') {
+            room?.send({ type: 'broadcast', event: 'end', payload: {} })
+            // Log the unanswered call
+            if (!logged.current && infoRef.current && logCb.current) { logged.current = true; logCb.current(infoRef.current.type, 0, infoRef.current.name) }
+            cleanup()
+            return { ...p, status: 'ended' }
+          }
           return p
         })
         setTimeout(() => setState(p => p.status === 'ended' ? initialState : p), 2000)
