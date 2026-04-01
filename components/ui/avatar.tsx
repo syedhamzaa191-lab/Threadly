@@ -55,7 +55,7 @@ function getColor(name: string) {
 export function Avatar({ src, name, size = 'md', online }: AvatarProps) {
   const [imgError, setImgError] = useState(false)
 
-  const showImage = src && !imgError
+  const showImage = src && !imgError && src.length > 0 && src !== 'null' && src !== 'undefined'
 
   return (
     <div className="relative inline-flex shrink-0">

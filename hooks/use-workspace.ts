@@ -55,9 +55,10 @@ export function useWorkspace(workspaceId: string) {
           .select('id, full_name, avatar_url')
           .in('id', userIds)
 
+        const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]))
         combined = mems.map((m: any) => ({
           ...m,
-          profiles: profiles?.find((p: any) => p.id === m.user_id) || null,
+          profiles: profileMap.get(m.user_id) || null,
         }))
       }
 

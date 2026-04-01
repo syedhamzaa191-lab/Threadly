@@ -30,27 +30,26 @@ export function useAuth() {
             .eq('id', user.id)
             .single()
 
-          // If profile has no avatar but Google metadata does, sync it
-          const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
-          if (data && !data.avatar_url && googleAvatar) {
-            await supabase
-              .from('profiles')
-              .update({ avatar_url: googleAvatar })
-              .eq('id', user.id)
-            data.avatar_url = googleAvatar
-          }
+          // Sync missing profile data from Google in one update
+          if (data) {
+            const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+            const googleName = user.user_metadata?.full_name || user.user_metadata?.name || null
+            const updates: Record<string, string> = {}
+            if (!data.avatar_url && googleAvatar) updates.avatar_url = googleAvatar
+            if (!data.full_name && googleName) updates.full_name = googleName
 
-          // If profile has no full_name but Google metadata does, sync it
-          const googleName = user.user_metadata?.full_name || user.user_metadata?.name || null
-          if (data && !data.full_name && googleName) {
-            await supabase
-              .from('profiles')
-              .update({ full_name: googleName })
-              .eq('id', user.id)
-            data.full_name = googleName
-          }
+            if (Object.keys(updates).length > 0) {
+              await supabase.from('profiles').update(updates).eq('id', user.id)
+            }
 
-          setProfile(data)
+            setProfile({
+              ...data,
+              avatar_url: data.avatar_url || googleAvatar,
+              full_name: data.full_name || googleName || '',
+            })
+          } else {
+            setProfile(null)
+          }
         }
       } catch (err) {
         if (process.env.NODE_ENV === 'development') console.error('Auth error:', err)

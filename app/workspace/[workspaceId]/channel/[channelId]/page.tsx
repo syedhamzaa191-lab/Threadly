@@ -78,7 +78,7 @@ export default function ChannelPage() {
     }))
   }
 
-  const formattedMessages = messages.map((m) => ({
+  const formattedMessages = useMemo(() => messages.map((m) => ({
     id: m.id,
     content: m.content,
     sender_id: m.sender_id,
@@ -87,7 +87,7 @@ export default function ChannelPage() {
     created_at: m.created_at,
     thread_count: m.reply_count,
     reactions: buildReactionGroups(m.reactions || []),
-  }))
+  })), [messages, user])
 
   const formattedReplies = replies.map((r) => ({
     id: r.id,

@@ -61,8 +61,13 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
   // Send call log as a message in the active DM
   const handleCallLog = useCallback(async (type: CallType, duration: number, remoteName: string) => {
-    const activeChannel = callDmChannelRef.current || activeDmIdRef.current
+    let activeChannel = callDmChannelRef.current || activeDmIdRef.current
     callDmChannelRef.current = null
+    // If no channel saved, try to find DM by remote user name
+    if (!activeChannel) {
+      const dm = conversations.find((c) => c.otherUser.full_name === remoteName)
+      if (dm) activeChannel = dm.id
+    }
     if (!activeChannel) return
     const mins = Math.floor(duration / 60)
     const secs = duration % 60
@@ -75,7 +80,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ channel_id: activeChannel, content }),
     })
-  }, [])
+  }, [conversations])
 
   const {
     callState, localVideoRef, remoteVideoRef,

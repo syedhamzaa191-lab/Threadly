@@ -19,7 +19,8 @@ export default function DmPage() {
   const params = useParams()
   const channelId = params.channelId as string
   const workspaceId = params.workspaceId as string
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   const { user } = useAuth()
   const { startCall } = useCallContext()
@@ -101,7 +102,7 @@ export default function DmPage() {
     }))
   }
 
-  const formattedMessages = messages.map((m) => ({
+  const formattedMessages = useMemo(() => messages.map((m) => ({
     id: m.id,
     content: m.content,
     sender_id: m.sender_id,
@@ -110,7 +111,7 @@ export default function DmPage() {
     created_at: m.created_at,
     thread_count: m.reply_count,
     reactions: buildReactionGroups(m.reactions || []),
-  }))
+  })), [messages, user])
 
   const formattedReplies = replies.map((r) => ({
     id: r.id,

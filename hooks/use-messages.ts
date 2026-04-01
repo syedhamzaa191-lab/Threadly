@@ -24,6 +24,9 @@ interface Message {
   reactions: ReactionData[]
 }
 
+// Global profile cache — shared across all useMessages instances
+const profileCache: Record<string, { id: string; full_name: string; avatar_url: string | null }> = {}
+
 export function useMessages(channelId: string) {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
@@ -33,14 +36,25 @@ export function useMessages(channelId: string) {
   const enrichWithProfiles = useCallback(async (msgs: any[]) => {
     if (msgs.length === 0) return []
     const senderIds = Array.from(new Set(msgs.map((m) => m.sender_id)))
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name, avatar_url')
-      .in('id', senderIds)
+
+    // Check which profiles we need to fetch (not in cache)
+    const uncachedIds = senderIds.filter((id) => !profileCache[id])
+
+    if (uncachedIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', uncachedIds)
+
+      // Add to cache
+      for (const p of profiles || []) {
+        profileCache[p.id] = p
+      }
+    }
 
     return msgs.map((m) => ({
       ...m,
-      profiles: profiles?.find((p: any) => p.id === m.sender_id) || null,
+      profiles: profileCache[m.sender_id] || null,
     }))
   }, [supabase])
 
