@@ -87,7 +87,7 @@ export function useDirectMessages(workspaceId: string, currentUserId: string | u
             lastMessageAt: lastMsg?.created_at,
           }
         })
-        .filter((c): c is DmConversation => c !== null) as DmConversation[]
+        .filter(Boolean) as DmConversation[]
 
       convos.sort((a, b) => {
         if (!a.lastMessageAt) return 1
