@@ -209,6 +209,7 @@ export default function ChannelPage() {
           senderName={forwardMsg.senderName}
           workspaceId={workspaceId}
           currentUserId={user.id}
+          excludeChannelId={channelId}
           onClose={() => setForwardMsg(null)}
         />
       )}
