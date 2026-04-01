@@ -4,6 +4,11 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { profileCache } from './use-messages'
 
+interface ReactionData {
+  emoji: string
+  user_id: string
+}
+
 interface Reply {
   id: string
   content: string
@@ -16,6 +21,7 @@ interface Reply {
     full_name: string
     avatar_url: string | null
   } | null
+  reactions: ReactionData[]
 }
 
 export function useThread(threadId: string | null, channelId: string) {
@@ -63,7 +69,23 @@ export function useThread(threadId: string | null, channelId: string) {
         .order('created_at', { ascending: true })
 
       const enriched = await enrichWithProfiles(data || [])
-      setReplies(enriched)
+
+      // Fetch reactions for replies
+      const replyIds = enriched.map((r: any) => r.id)
+      let reactionsMap: Record<string, ReactionData[]> = {}
+      if (replyIds.length > 0) {
+        const { data: reactions } = await supabase
+          .from('reactions')
+          .select('message_id, emoji, user_id')
+          .in('message_id', replyIds)
+        for (const r of reactions || []) {
+          if (!reactionsMap[r.message_id]) reactionsMap[r.message_id] = []
+          reactionsMap[r.message_id].push({ emoji: r.emoji, user_id: r.user_id })
+        }
+      }
+
+      const withReactions = enriched.map((r: any) => ({ ...r, reactions: reactionsMap[r.id] || [] }))
+      setReplies(withReactions)
       setLoading(false)
     }
 
@@ -84,7 +106,7 @@ export function useThread(threadId: string | null, channelId: string) {
           if (enriched[0]) {
             setReplies((prev) => {
               if (prev.some((r) => r.id === enriched[0].id)) return prev
-              return [...prev, enriched[0]]
+              return [...prev, { ...enriched[0], reactions: [] }]
             })
           }
         }

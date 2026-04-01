@@ -396,6 +396,7 @@ export function useCall(
     const on = speakerOn.current
     setState(p => ({ ...p, isSpeaker: on }))
     const stream = remoteStream.current
+    if (!stream) return
 
     if (on) {
       // Speaker ON — create AudioContext and route through loudspeaker
