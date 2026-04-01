@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 
 export async function GET() {
-  const user = process.env.TURN_USERNAME || 'threadly'
-  const cred = process.env.TURN_CREDENTIAL || 'Vwa9gKBJFoths7Lj'
-  const host = process.env.TURN_HOST || 'turn.mustafakurd.com'
+  const user = (process.env.TURN_USERNAME || 'threadly').trim()
+  const cred = (process.env.TURN_CREDENTIAL || 'Vwa9gKBJFoths7Lj').trim()
+  const host = (process.env.TURN_HOST || 'turn.mustafakurd.com').trim()
 
   return NextResponse.json({
     iceServers: [
