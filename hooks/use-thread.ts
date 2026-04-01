@@ -2,9 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-
-// Import shared profile cache from use-messages
-const threadProfileCache: Record<string, { id: string; full_name: string; avatar_url: string | null }> = {}
+import { profileCache } from './use-messages'
 
 interface Reply {
   id: string
@@ -31,7 +29,7 @@ export function useThread(threadId: string | null, channelId: string) {
     const senderIds = Array.from(new Set(msgs.map((m) => m.sender_id)))
 
     // Check which profiles need fetching
-    const uncachedIds = senderIds.filter((id) => !threadProfileCache[id])
+    const uncachedIds = senderIds.filter((id) => !profileCache[id])
 
     if (uncachedIds.length > 0) {
       const { data: profiles } = await supabase
@@ -40,13 +38,13 @@ export function useThread(threadId: string | null, channelId: string) {
         .in('id', uncachedIds)
 
       for (const p of profiles || []) {
-        threadProfileCache[p.id] = p
+        profileCache[p.id] = p
       }
     }
 
     return msgs.map((m) => ({
       ...m,
-      profiles: threadProfileCache[m.sender_id] || null,
+      profiles: profileCache[m.sender_id] || null,
     }))
   }, [supabase])
 

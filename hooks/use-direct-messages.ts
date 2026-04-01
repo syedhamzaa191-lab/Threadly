@@ -87,7 +87,7 @@ export function useDirectMessages(workspaceId: string, currentUserId: string | u
             lastMessageAt: lastMsg?.created_at,
           }
         })
-        .filter((c): c is DmConversation => c !== null)
+        .filter((c): c is DmConversation => c !== null) as DmConversation[]
 
       convos.sort((a, b) => {
         if (!a.lastMessageAt) return 1
@@ -115,18 +115,16 @@ export function useDirectMessages(workspaceId: string, currentUserId: string | u
             const idx = prev.findIndex((c) => c.id === msg.channel_id)
             if (idx === -1) return prev
 
-            const updated = [...prev]
-            updated[idx] = {
-              ...updated[idx],
-              lastMessage: msg.content,
-              lastMessageAt: msg.created_at,
+            const conv = { ...prev[idx], lastMessage: msg.content, lastMessageAt: msg.created_at }
+
+            // If already at top, just update in place (no sort needed)
+            if (idx === 0) {
+              return [conv, ...prev.slice(1)]
             }
-            updated.sort((a, b) => {
-              if (!a.lastMessageAt) return 1
-              if (!b.lastMessageAt) return -1
-              return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
-            })
-            return updated
+
+            // Move this conversation to top (it has the newest message)
+            const without = prev.filter((_, i) => i !== idx)
+            return [conv, ...without]
           })
         }
       )

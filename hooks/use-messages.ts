@@ -24,8 +24,8 @@ interface Message {
   reactions: ReactionData[]
 }
 
-// Global profile cache — shared across all useMessages instances
-const profileCache: Record<string, { id: string; full_name: string; avatar_url: string | null }> = {}
+// Global profile cache — shared across ALL hooks (messages, threads, etc.)
+export const profileCache: Record<string, { id: string; full_name: string; avatar_url: string | null }> = {}
 export function clearProfileCache() { Object.keys(profileCache).forEach(k => delete profileCache[k]) }
 
 export function useMessages(channelId: string) {
@@ -130,12 +130,13 @@ export function useMessages(channelId: string) {
           const enriched = await enrichWithProfiles([newMsg])
           if (enriched[0]) {
             setMessages((prev) => {
-              // Check if this exact message already exists
+              // Check if this exact message already exists (by real ID)
               if (prev.some((m) => m.id === enriched[0].id)) return prev
-              // Remove any temp optimistic message with same content/sender
-              const withoutTemp = prev.filter((m) =>
-                !(m.id.startsWith('temp-') && m.sender_id === enriched[0].sender_id && m.content === enriched[0].content)
+              // Remove the OLDEST temp message from same sender (one-to-one replacement)
+              const tempIdx = prev.findIndex((m) =>
+                m.id.startsWith('temp-') && m.sender_id === enriched[0].sender_id
               )
+              const withoutTemp = tempIdx >= 0 ? [...prev.slice(0, tempIdx), ...prev.slice(tempIdx + 1)] : prev
               return [...withoutTemp, { ...enriched[0], reactions: [] }]
             })
           }
