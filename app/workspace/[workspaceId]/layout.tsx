@@ -150,6 +150,11 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
     return () => clearInterval(interval)
   }, [workspaceId])
 
+  // Reset initialLoaded when workspace changes
+  useEffect(() => {
+    setInitialLoaded(false)
+  }, [workspaceId])
+
   // Track initial load — only show full-screen spinner on first load
   useEffect(() => {
     if (!authLoading && !wsLoading && !initialLoaded) {

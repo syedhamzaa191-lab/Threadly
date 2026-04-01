@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { useMessages } from '@/hooks/use-messages'
 import { useThread } from '@/hooks/use-thread'
@@ -17,6 +17,7 @@ import { ReactionGroup } from '@/components/chat/reaction-display'
 
 export default function ChannelPage() {
   const params = useParams()
+  const router = useRouter()
   const channelId = params.channelId as string
   const workspaceId = params.workspaceId as string
 
@@ -58,6 +59,13 @@ export default function ChannelPage() {
   const { replies, sendReply } = useThread(threadMessageId, channelId)
 
   const channel = channels.find((c) => c.id === channelId)
+
+  // Redirect if channel doesn't exist (after channels loaded)
+  useEffect(() => {
+    if (channels.length > 0 && !channels.find((c) => c.id === channelId)) {
+      router.push(`/workspace/${workspaceId}`)
+    }
+  }, [channels, channelId, workspaceId, router])
 
   function buildReactionGroups(reactions: { emoji: string; user_id: string }[]): ReactionGroup[] {
     const map = new Map<string, { count: number; userIds: string[] }>()

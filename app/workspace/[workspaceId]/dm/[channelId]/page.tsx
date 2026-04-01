@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { useMessages } from '@/hooks/use-messages'
 import { useThread } from '@/hooks/use-thread'
@@ -17,6 +17,7 @@ import { useCallContext } from '../../layout'
 
 export default function DmPage() {
   const params = useParams()
+  const router = useRouter()
   const channelId = params.channelId as string
   const workspaceId = params.workspaceId as string
   const supabaseRef = useRef(createClient())
@@ -70,7 +71,13 @@ export default function DmPage() {
         .eq('id', channelId)
         .single()
 
-      if (channel?.dm_user_ids) {
+      if (!channel) {
+        // Invalid DM channel — redirect back
+        router.push(`/workspace/${workspaceId}`)
+        return
+      }
+
+      if (channel.dm_user_ids) {
         const otherId = (channel.dm_user_ids as string[]).find((id: string) => id !== user.id) || (channel.dm_user_ids as string[])[0]
         const { data: profile } = await supabase
           .from('profiles')
