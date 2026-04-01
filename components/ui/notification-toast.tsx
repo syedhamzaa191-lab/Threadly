@@ -78,7 +78,9 @@ export function NotificationToast({ senderName, content, onDismiss, onClick }: N
 // Generate and play a clean notification sound using Web Audio API
 function playNotificationSound() {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const AC = window.AudioContext || (window as any).webkitAudioContext
+    if (!AC) return
+    const ctx = new AC()
 
     // First tone (higher)
     const osc1 = ctx.createOscillator()
