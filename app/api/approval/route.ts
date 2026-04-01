@@ -2,41 +2,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-// Ensure approval_requests table exists
-async function ensureTable(admin: ReturnType<typeof createAdminClient>) {
-  await admin.rpc('exec_sql', {
-    query: `
-      CREATE TABLE IF NOT EXISTS public.approval_requests (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-        email text NOT NULL,
-        full_name text NOT NULL DEFAULT '',
-        avatar_url text,
-        status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-        workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE,
-        reviewed_by uuid REFERENCES auth.users(id),
-        created_at timestamptz NOT NULL DEFAULT now(),
-        reviewed_at timestamptz
-      );
-      ALTER TABLE public.approval_requests ENABLE ROW LEVEL SECURITY;
-      DO $$ BEGIN
-        CREATE POLICY "Anyone can view approval_requests" ON public.approval_requests FOR SELECT USING (true);
-      EXCEPTION WHEN duplicate_object THEN NULL;
-      END $$;
-      DO $$ BEGIN
-        CREATE POLICY "Anyone can insert approval_requests" ON public.approval_requests FOR INSERT WITH CHECK (true);
-      EXCEPTION WHEN duplicate_object THEN NULL;
-      END $$;
-      DO $$ BEGIN
-        CREATE POLICY "Anyone can update approval_requests" ON public.approval_requests FOR UPDATE USING (true);
-      EXCEPTION WHEN duplicate_object THEN NULL;
-      END $$;
-    `,
-  }).catch(() => {
-    // rpc might not exist, try raw SQL via admin
-  })
-}
-
 // GET — list pending approval requests (admin only)
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
