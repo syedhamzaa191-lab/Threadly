@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+// Import shared profile cache from use-messages
+const threadProfileCache: Record<string, { id: string; full_name: string; avatar_url: string | null }> = {}
+
 interface Reply {
   id: string
   content: string
@@ -26,14 +29,24 @@ export function useThread(threadId: string | null, channelId: string) {
   const enrichWithProfiles = useCallback(async (msgs: any[]) => {
     if (msgs.length === 0) return []
     const senderIds = Array.from(new Set(msgs.map((m) => m.sender_id)))
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name, avatar_url')
-      .in('id', senderIds)
+
+    // Check which profiles need fetching
+    const uncachedIds = senderIds.filter((id) => !threadProfileCache[id])
+
+    if (uncachedIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', uncachedIds)
+
+      for (const p of profiles || []) {
+        threadProfileCache[p.id] = p
+      }
+    }
 
     return msgs.map((m) => ({
       ...m,
-      profiles: profiles?.find((p: any) => p.id === m.sender_id) || null,
+      profiles: threadProfileCache[m.sender_id] || null,
     }))
   }, [supabase])
 
@@ -83,7 +96,7 @@ export function useThread(threadId: string | null, channelId: string) {
     return () => {
       supabase.removeChannel(subscription)
     }
-  }, [threadId, enrichWithProfiles, supabase])
+  }, [threadId, enrichWithProfiles])
 
   const sendReply = async (content: string) => {
     if (!threadId) return { error: new Error('No thread selected') }

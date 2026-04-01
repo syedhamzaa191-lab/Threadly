@@ -74,7 +74,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
     const durationStr = duration > 0 ? (mins > 0 ? `${mins}m ${secs}s` : `${secs}s`) : 'No answer'
     const icon = type === 'video' ? '📹' : '📞'
     const label = type === 'video' ? 'Video call' : 'Voice call'
-    const content = `${icon} ${label} with ${remoteName} — ${durationStr}`
+    const content = `[CALL] ${icon} ${label} with ${remoteName} — ${durationStr}`
     await fetch('/api/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -88,7 +88,7 @@ export function MessageList({ messages, currentUserId, onThreadClick, onReact, o
           const isGrouped = shouldGroup(msg, prevMsg)
           const showDateSeparator = !prevMsg || isDifferentDay(msg.created_at, prevMsg.created_at)
           const showSenderDivider = !showDateSeparator && isSenderChange(msg, prevMsg) && !isGrouped
-          const isCallMessage = msg.content.startsWith('📞') || msg.content.startsWith('📹')
+          const isCallMessage = msg.content.startsWith('[CALL]') || msg.content.startsWith('📞') || msg.content.startsWith('📹')
 
           return (
             <div key={msg.id}>
@@ -109,9 +109,7 @@ export function MessageList({ messages, currentUserId, onThreadClick, onReact, o
               {isCallMessage ? (
                 <CallLogItem
                   content={msg.content}
-                  senderName={msg.sender_name}
                   timestamp={formatTime(msg.created_at)}
-                  isOwnMessage={msg.sender_id === currentUserId}
                 />
               ) : (
                 <MessageItem
@@ -141,13 +139,12 @@ export function MessageList({ messages, currentUserId, onThreadClick, onReact, o
   )
 }
 
-function CallLogItem({ content, senderName, timestamp, isOwnMessage }: {
+function CallLogItem({ content, timestamp }: {
   content: string
-  senderName: string
   timestamp: string
-  isOwnMessage: boolean
 }) {
-  const isVideo = content.startsWith('📹')
+  const displayContent = content.replace('[CALL] ', '')
+  const isVideo = content.includes('📹') || content.includes('Video call')
   return (
     <div className="px-4 md:px-8 py-2">
       <div className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] rounded-xl border border-white/[0.06]">
@@ -165,7 +162,7 @@ function CallLogItem({ content, senderName, timestamp, isOwnMessage }: {
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] text-white/60">{content}</p>
+          <p className="text-[13px] text-white/60">{displayContent}</p>
         </div>
         <span className="text-[10px] text-white/20 tabular-nums shrink-0">{timestamp}</span>
       </div>

@@ -26,6 +26,7 @@ interface Message {
 
 // Global profile cache — shared across all useMessages instances
 const profileCache: Record<string, { id: string; full_name: string; avatar_url: string | null }> = {}
+export function clearProfileCache() { Object.keys(profileCache).forEach(k => delete profileCache[k]) }
 
 export function useMessages(channelId: string) {
   const [messages, setMessages] = useState<Message[]>([])
@@ -183,8 +184,10 @@ export function useMessages(channelId: string) {
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const r = payload.new as any
-            setMessages((prev) =>
-              prev.map((m) => {
+            // Skip if this reaction is not for any message we're displaying
+            setMessages((prev) => {
+              if (!prev.some((m) => m.id === r.message_id)) return prev
+              return prev.map((m) => {
                 if (m.id !== r.message_id) return m
                 const exists = m.reactions.some(
                   (er) => er.emoji === r.emoji && er.user_id === r.user_id
@@ -192,11 +195,12 @@ export function useMessages(channelId: string) {
                 if (exists) return m
                 return { ...m, reactions: [...m.reactions, { emoji: r.emoji, user_id: r.user_id }] }
               })
-            )
+            })
           } else if (payload.eventType === 'DELETE') {
             const r = payload.old as any
-            setMessages((prev) =>
-              prev.map((m) => {
+            setMessages((prev) => {
+              if (!prev.some((m) => m.id === r.message_id)) return prev
+              return prev.map((m) => {
                 if (m.id !== r.message_id) return m
                 return {
                   ...m,
@@ -205,7 +209,7 @@ export function useMessages(channelId: string) {
                   ),
                 }
               })
-            )
+            })
           }
         }
       )

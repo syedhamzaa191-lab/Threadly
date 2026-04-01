@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { clearProfileCache } from './use-messages'
 import type { User } from '@supabase/supabase-js'
 
 interface Profile {
@@ -68,6 +69,7 @@ export function useAuth() {
   }, [supabase])
 
   const signOut = async () => {
+    clearProfileCache()
     await supabase.auth.signOut()
     window.location.href = '/login'
   }

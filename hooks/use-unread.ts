@@ -38,86 +38,84 @@ export function useUnread(workspaceId: string, activeChannelId: string | undefin
     }
   }, [newMessageAlert])
 
-  // Pre-load channel cache for this workspace
-  useEffect(() => {
-    if (!workspaceId) return
-    supabase
-      .from('channels')
-      .select('id, workspace_id')
-      .eq('workspace_id', workspaceId)
-      .then(({ data }) => {
-        if (data) {
-          for (const ch of data) {
-            channelWorkspaceCache[ch.id] = ch.workspace_id
-          }
-        }
-      })
-  }, [workspaceId, supabase])
-
+  // Pre-load cache THEN subscribe to realtime (fixes race condition)
   useEffect(() => {
     if (!workspaceId || !currentUserId) return
 
-    const channel = supabase
-      .channel(`unread-${workspaceId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        async (payload) => {
-          const msg = payload.new as any
-          if (msg.sender_id === currentUserId) return
-          if (msg.parent_message_id) return
-          if (msg.channel_id === activeRef.current) return
+    let channel: any = null
 
-          // Increment unread immediately — don't wait for cache/DB lookup
-          setUnread((prev) => ({
-            ...prev,
-            [msg.channel_id]: (prev[msg.channel_id] || 0) + 1,
-          }))
+    async function setup() {
+      // Load cache first
+      const { data } = await supabase
+        .from('channels')
+        .select('id, workspace_id')
+        .eq('workspace_id', workspaceId)
 
-          // Verify this channel belongs to current workspace (async, non-blocking)
-          let wsId = channelWorkspaceCache[msg.channel_id]
-          if (!wsId) {
-            const { data: ch } = await supabase
-              .from('channels')
-              .select('workspace_id')
-              .eq('id', msg.channel_id)
-              .single()
-            if (ch) {
-              wsId = ch.workspace_id
-              channelWorkspaceCache[msg.channel_id] = wsId
-            }
-          }
-
-          // If channel is from different workspace, undo the unread increment
-          if (wsId && wsId !== workspaceId) {
-            setUnread((prev) => {
-              const next = { ...prev }
-              delete next[msg.channel_id]
-              return next
-            })
-            return
-          }
-
-          // Get sender name for notification toast
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', msg.sender_id)
-            .single()
-
-          setNewMessageAlert({
-            channelId: msg.channel_id,
-            senderName: profile?.full_name || 'Someone',
-            content: msg.content.slice(0, 60) + (msg.content.length > 60 ? '...' : ''),
-          })
+      if (data) {
+        for (const ch of data) {
+          channelWorkspaceCache[ch.id] = ch.workspace_id
         }
-      )
-      .subscribe()
+      }
+
+      // NOW subscribe — cache is ready
+      channel = supabase
+        .channel(`unread-${workspaceId}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages' },
+          async (payload) => {
+            const msg = payload.new as any
+            if (msg.sender_id === currentUserId) return
+            if (msg.parent_message_id) return
+            if (msg.channel_id === activeRef.current) return
+
+            // Check cache (already loaded)
+            let wsId = channelWorkspaceCache[msg.channel_id]
+            if (!wsId) {
+              // New channel created after cache load — fetch once
+              const { data: ch } = await supabase
+                .from('channels')
+                .select('workspace_id')
+                .eq('id', msg.channel_id)
+                .single()
+              if (ch) {
+                wsId = ch.workspace_id
+                channelWorkspaceCache[msg.channel_id] = wsId
+              }
+            }
+
+            // Skip if different workspace
+            if (wsId && wsId !== workspaceId) return
+
+            // Increment unread
+            setUnread((prev) => ({
+              ...prev,
+              [msg.channel_id]: (prev[msg.channel_id] || 0) + 1,
+            }))
+
+            // Get sender name for toast
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', msg.sender_id)
+              .single()
+
+            setNewMessageAlert({
+              channelId: msg.channel_id,
+              senderName: profile?.full_name || 'Someone',
+              content: msg.content.slice(0, 60) + (msg.content.length > 60 ? '...' : ''),
+            })
+          }
+        )
+        .subscribe()
+    }
+
+    setup()
 
     return () => {
-      supabase.removeChannel(channel)
+      if (channel) supabase.removeChannel(channel)
     }
-  }, [workspaceId, currentUserId, supabase])
+  }, [workspaceId, currentUserId])
 
   const dismissAlert = useCallback(() => {
     setNewMessageAlert(null)
