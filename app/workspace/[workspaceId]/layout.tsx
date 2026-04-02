@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useMemo, useEffect, createContext, useContext } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect, createContext, useContext, lazy, Suspense } from 'react'
 import { useParams, useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { useWorkspace } from '@/hooks/use-workspace'
@@ -9,14 +9,16 @@ import { useDirectMessages } from '@/hooks/use-direct-messages'
 import { useUnread } from '@/hooks/use-unread'
 import { useCall, CallType } from '@/hooks/use-call'
 import { Sidebar } from '@/components/layout/sidebar'
-import { ApprovalPanel } from '@/components/approval/approval-panel'
-import { NotificationPanel } from '@/components/notifications/notification-panel'
-import { ThreadsPanel } from '@/components/notifications/threads-panel'
-import { ProfileModal } from '@/components/profile/profile-modal'
 import { NotificationToast } from '@/components/ui/notification-toast'
-import { CallModal } from '@/components/call/call-modal'
-import { IncomingCall } from '@/components/call/incoming-call'
 import { createClient } from '@/lib/supabase/client'
+
+// Lazy load heavy modals — only loaded when user clicks
+const ApprovalPanel = lazy(() => import('@/components/approval/approval-panel').then(m => ({ default: m.ApprovalPanel })))
+const NotificationPanel = lazy(() => import('@/components/notifications/notification-panel').then(m => ({ default: m.NotificationPanel })))
+const ThreadsPanel = lazy(() => import('@/components/notifications/threads-panel').then(m => ({ default: m.ThreadsPanel })))
+const ProfileModal = lazy(() => import('@/components/profile/profile-modal').then(m => ({ default: m.ProfileModal })))
+const CallModal = lazy(() => import('@/components/call/call-modal').then(m => ({ default: m.CallModal })))
+const IncomingCall = lazy(() => import('@/components/call/incoming-call').then(m => ({ default: m.IncomingCall })))
 
 // Call context so child pages can trigger calls
 interface CallContextType {
@@ -302,7 +304,8 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
         {children}
       </CallContext.Provider>
 
-      {/* Calling UI */}
+      {/* Calling UI — lazy loaded */}
+      <Suspense fallback={null}>
       {callState.status === 'ringing' && (
         <IncomingCall
           callerName={callState.remoteUserName || 'Unknown'}
@@ -396,6 +399,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
           onSave={handleProfileSave}
         />
       )}
+      </Suspense>
     </div>
   )
 }
