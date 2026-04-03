@@ -11,7 +11,7 @@ interface Channel {
   created_at: string
 }
 
-export function useChannels(workspaceId: string) {
+export function useChannels(workspaceId: string, userId?: string) {
   const [channels, setChannels] = useState<Channel[]>([])
   const [loading, setLoading] = useState(true)
   const supabaseRef = useRef(createClient())
@@ -21,14 +21,36 @@ export function useChannels(workspaceId: string) {
     if (!workspaceId) return
 
     async function fetchChannels() {
-      const { data } = await supabase
+      // Get all non-DM channels
+      const { data: allChannels } = await supabase
         .from('channels')
         .select('*')
         .eq('workspace_id', workspaceId)
         .eq('is_dm', false)
         .order('created_at', { ascending: true })
 
-      setChannels(data || [])
+      if (!allChannels || allChannels.length === 0) {
+        setChannels([])
+        setLoading(false)
+        return
+      }
+
+      if (!userId) {
+        setLoading(false)
+        return
+      }
+
+      // Get channels where user is a member via API (bypasses RLS)
+      const res = await fetch(`/api/channels/my-channels?user_id=${userId}`)
+      if (res.ok) {
+        const data = await res.json()
+        const memberChannelIds = (data.channel_ids || []) as string[]
+        const filtered = allChannels.filter((ch: any) => memberChannelIds.includes(ch.id))
+        setChannels(filtered)
+      } else {
+        // Fallback — show all channels if API fails
+        setChannels(allChannels)
+      }
       setLoading(false)
     }
 
@@ -47,7 +69,12 @@ export function useChannels(workspaceId: string) {
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setChannels((prev) => [...prev, payload.new as Channel])
+            const newCh = payload.new as any
+            if (newCh.is_dm) return // Skip DM channels
+            setChannels((prev) => {
+              if (prev.some(c => c.id === newCh.id)) return prev
+              return [...prev, newCh as Channel]
+            })
           } else if (payload.eventType === 'DELETE') {
             setChannels((prev) => prev.filter((c) => c.id !== payload.old.id))
           } else if (payload.eventType === 'UPDATE') {
@@ -59,10 +86,27 @@ export function useChannels(workspaceId: string) {
       )
       .subscribe()
 
+    // Listen for channel_members changes — when user is added/removed, refresh channels
+    const memberSub = supabase
+      .channel(`channel-members:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'channel_members' },
+        (payload) => {
+          const row = (payload.new || payload.old) as any
+          if (row?.user_id === userId) {
+            // User was added or removed — refetch channels
+            fetchChannels()
+          }
+        }
+      )
+      .subscribe()
+
     return () => {
       supabase.removeChannel(subscription)
+      supabase.removeChannel(memberSub)
     }
-  }, [workspaceId])
+  }, [workspaceId, userId])
 
   const createChannel = async (name: string, userId: string) => {
     const { data, error } = await supabase
@@ -71,9 +115,18 @@ export function useChannels(workspaceId: string) {
         workspace_id: workspaceId,
         name: name.toLowerCase().replace(/\s+/g, '-'),
         created_by: userId,
+        is_dm: false,
       })
       .select()
       .single()
+
+    // Auto-add creator to channel
+    if (data) {
+      await supabase.from('channel_members').upsert({
+        channel_id: data.id,
+        user_id: userId,
+      }, { onConflict: 'channel_id,user_id' })
+    }
 
     return { data, error }
   }

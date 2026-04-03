@@ -14,7 +14,7 @@ import { ReactionGroup } from '@/components/chat/reaction-display'
 import { createClient } from '@/lib/supabase/client'
 import { UserProfilePanel } from '@/components/profile/user-profile-panel'
 import { ForwardModal } from '@/components/chat/forward-modal'
-import { useCallContext } from '../../layout'
+import { useCallContext, usePresenceContext } from '../../layout'
 
 export default function DmPage() {
   const params = useParams()
@@ -27,6 +27,7 @@ export default function DmPage() {
 
   const { user } = useAuth()
   const { startCall } = useCallContext()
+  const { isOnline, getLastSeen } = usePresenceContext()
   const { members } = useWorkspace(workspaceId)
   const { messages, loading, sendMessage, deleteMessage, toggleReaction } = useMessages(channelId)
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null)
@@ -164,21 +165,23 @@ export default function DmPage() {
 
   return (
     <>
-      <main className="flex-1 flex flex-col min-w-0 bg-[#1e1a2b] page-enter overflow-x-hidden">
+      <main className="flex-1 flex flex-col min-w-0 chat-bg page-enter overflow-x-hidden">
         {/* DM Header */}
         <div className="px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-between bg-[#252133] border-b border-white/[0.06]">
           <button onClick={() => otherUser && setProfileUserId(otherUser.id)} className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">
             <div className="hidden sm:block">
-              <Avatar name={otherUser?.full_name || '?'} src={otherUser?.avatar_url} size="lg" online />
+              <Avatar name={otherUser?.full_name || '?'} src={otherUser?.avatar_url} size="lg" online={otherUser ? isOnline(otherUser.id) : false} />
             </div>
             <div className="sm:hidden">
-              <Avatar name={otherUser?.full_name || '?'} src={otherUser?.avatar_url} size="md" online />
+              <Avatar name={otherUser?.full_name || '?'} src={otherUser?.avatar_url} size="md" online={otherUser ? isOnline(otherUser.id) : false} />
             </div>
             <div className="text-left">
               <h2 className="font-bold text-[16px] text-white tracking-tight hover:text-violet-300 transition-colors">
                 {otherUser?.full_name || 'Loading...'}
               </h2>
-              <p className="text-[11px] text-white/40 font-medium mt-0.5">Direct Message</p>
+              <p className={`text-[11px] font-medium mt-0.5 ${otherUser && isOnline(otherUser.id) ? 'text-emerald-400' : 'text-white/40'}`}>
+                {otherUser ? getLastSeen(otherUser.id) : 'Direct Message'}
+              </p>
             </div>
           </button>
           <div className="flex items-center gap-1">
@@ -309,7 +312,7 @@ export default function DmPage() {
       )}
 
       {profileUserId && (
-        <UserProfilePanel userId={profileUserId} onClose={() => setProfileUserId(null)} />
+        <UserProfilePanel userId={profileUserId} onClose={() => setProfileUserId(null)} isOnline={isOnline(profileUserId)} lastSeen={getLastSeen(profileUserId)} />
       )}
 
       {!profileUserId && threadMessageId && formattedParent && (

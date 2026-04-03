@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { HeroAnimation } from '@/components/landing/hero-animation'
+import { LiveChatDemo } from '@/components/landing/live-chat-demo'
+import { ThreadlyLogo } from '@/components/ui/threadly-logo'
 
 export default async function Home() {
   const supabase = createClient()
@@ -24,12 +26,7 @@ export default async function Home() {
 
       {/* Navbar */}
       <nav className="relative z-20 flex items-center justify-between px-6 md:px-12 py-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-accent rounded-xl flex items-center justify-center shadow-glow">
-            <span className="text-white font-extrabold text-lg">T</span>
-          </div>
-          <span className="text-xl font-extrabold text-white tracking-tight">Threadly</span>
-        </div>
+        <ThreadlyLogo size="sm" showText={true} />
         <div className="flex items-center gap-3">
           {isLoggedIn ? (
             <Link
@@ -95,7 +92,9 @@ export default async function Home() {
           </p>
         </div>
 
-        {/* Characters + Chat on sides */}
+        <div className="mb-6" />
+
+        {/* Characters */}
         <div className="relative w-full min-h-[200px] sm:min-h-[300px] md:min-h-[420px] lg:min-h-[500px] xl:min-h-[560px] mb-6">
           <HeroAnimation />
         </div>
@@ -117,65 +116,13 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* App Preview */}
+      {/* Live Chat Demo */}
       <section className="relative max-w-5xl mx-auto px-4 md:px-6 pb-16 md:pb-24">
-        <div className="bg-white/5 rounded-2xl md:rounded-3xl p-2 md:p-5 backdrop-blur-sm border border-white/10 shadow-glow-lg">
-          <div className="bg-white rounded-2xl p-5 md:p-8 shadow-premium">
-            <div className="flex gap-4">
-              {/* Fake sidebar */}
-              <div className="hidden md:block w-52 shrink-0 bg-[#0f0a1a] rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-5">
-                  <div className="w-7 h-7 bg-gradient-accent rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">T</span>
-                  </div>
-                  <span className="text-[13px] font-bold text-white">My Workspace</span>
-                </div>
-                <p className="text-[9px] font-bold text-white/25 uppercase tracking-[0.15em] mb-2 px-1">Channels</p>
-                <div className="space-y-0.5">
-                  <div className="px-2.5 py-1.5 bg-white/10 text-white rounded-lg text-xs font-medium flex items-center gap-2">
-                    <span className="text-violet-300 text-[10px]">#</span> general
-                  </div>
-                  <div className="px-2.5 py-1.5 text-white/40 rounded-lg text-xs font-medium flex items-center gap-2">
-                    <span className="text-white/20 text-[10px]">#</span> design
-                  </div>
-                  <div className="px-2.5 py-1.5 text-white/40 rounded-lg text-xs font-medium flex items-center gap-2">
-                    <span className="text-white/20 text-[10px]">#</span> engineering
-                  </div>
-                </div>
-                <p className="text-[9px] font-bold text-white/25 uppercase tracking-[0.15em] mb-2 mt-4 px-1">Direct Messages</p>
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-white/40">
-                    <div className="w-5 h-5 bg-gradient-to-br from-purple-400 to-violet-500 rounded-full" />
-                    <span>Sarah K.</span>
-                  </div>
-                  <div className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-white/40">
-                    <div className="w-5 h-5 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full" />
-                    <span>Ali M.</span>
-                  </div>
-                </div>
-              </div>
-              {/* Fake chat */}
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-5 pb-3 border-b border-gray-100">
-                  <span className="text-violet-400 text-base">#</span>
-                  <span className="text-sm font-bold text-gray-900">general</span>
-                  <span className="text-[11px] text-gray-400 ml-2 bg-gray-100 px-2 py-0.5 rounded-full">12 members</span>
-                </div>
-                <div className="space-y-4">
-                  <ChatBubble name="Sarah K." gradient="from-purple-400 to-violet-500" time="10:30 AM" msg="Hey team! The new designs are ready for review." />
-                  <ChatBubble name="Ali M." gradient="from-blue-400 to-indigo-500" time="10:32 AM" msg="Looks great! I'll start on the frontend today." />
-                  <ChatBubble name="You" gradient="from-fuchsia-400 to-pink-500" time="10:35 AM" msg="Awesome work everyone. Let's sync up in the thread." />
-                </div>
-                <div className="mt-5 px-4 py-3 bg-gray-50 rounded-xl border border-gray-200/60 text-xs text-gray-400 flex items-center justify-between">
-                  <span>Type a message...</span>
-                  <div className="w-6 h-6 bg-gradient-accent rounded-lg flex items-center justify-center">
-                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="text-center mb-10">
+          <h2 className="text-2xl md:text-4xl font-extrabold text-white tracking-tight mb-3">See it in action</h2>
+          <p className="text-white/35 text-[15px]">Real-time messaging that just works</p>
         </div>
+        <LiveChatDemo />
       </section>
 
       {/* Features */}
@@ -208,9 +155,24 @@ export default async function Home() {
             desc="Messages appear instantly. No refresh needed — powered by real-time sync."
           />
           <FeatureCard
+            icon={<CallIconLanding />}
+            title="Voice & Video Calls"
+            desc="One-click voice and video calls with any team member. Crystal clear audio."
+          />
+          <FeatureCard
+            icon={<FileIconLanding />}
+            title="File Sharing"
+            desc="Share images, documents, and voice messages directly in chat."
+          />
+          <FeatureCard
+            icon={<MentionIconLanding />}
+            title="@Mentions & Notifications"
+            desc="Mention anyone, get notified instantly. Never miss an important message."
+          />
+          <FeatureCard
             icon={<InviteIconFeature />}
-            title="Easy Invites"
-            desc="Invite teammates with a secure link. They sign in with Google and they're in."
+            title="Admin Approvals"
+            desc="New users sign in with Google, admin approves. Simple and secure onboarding."
           />
           <FeatureCard
             icon={<SecureIcon />}
@@ -244,12 +206,7 @@ export default async function Home() {
       {/* Footer */}
       <footer className="relative border-t border-white/5 py-8 px-4 md:px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-gradient-accent rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xs">T</span>
-            </div>
-            <span className="text-sm font-bold text-white">Threadly</span>
-          </div>
+          <ThreadlyLogo size="sm" showText={true} />
           <p className="text-xs text-white/30">
             Designed & Developed by <span className="text-white/50 font-semibold">Syed Hamza Ali</span>
           </p>
@@ -276,12 +233,18 @@ function ChatBubble({ name, gradient, time, msg }: { name: string; gradient: str
 
 function FeatureCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
   return (
-    <div className="group bg-white/5 rounded-2xl p-6 hover:bg-white/8 transition-all duration-300 border border-white/5 hover:border-white/10 backdrop-blur-sm">
-      <div className="w-10 h-10 bg-gradient-accent rounded-xl flex items-center justify-center mb-4 shadow-glow group-hover:shadow-glow-lg transition-shadow duration-300">
-        {icon}
+    <div className="group relative bg-white/[0.03] rounded-2xl p-6 hover:bg-white/[0.06] transition-all duration-500 border border-white/[0.06] hover:border-violet-500/20 backdrop-blur-sm overflow-hidden">
+      {/* Hover glow */}
+      <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 to-purple-500/0 group-hover:from-violet-500/5 group-hover:to-purple-500/5 transition-all duration-500" />
+      {/* Shine */}
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+      <div className="relative">
+        <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(139,92,246,0.2)] group-hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] transition-shadow duration-500">
+          {icon}
+        </div>
+        <h3 className="text-[16px] font-bold text-white mb-2 group-hover:text-violet-200 transition-colors">{title}</h3>
+        <p className="text-[13px] text-white/35 leading-relaxed">{desc}</p>
       </div>
-      <h3 className="text-[15px] font-bold text-white mb-2">{title}</h3>
-      <p className="text-[13px] text-white/40 leading-relaxed">{desc}</p>
     </div>
   )
 }
@@ -322,6 +285,30 @@ function InviteIconFeature() {
   return (
     <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+    </svg>
+  )
+}
+
+function CallIconLanding() {
+  return (
+    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    </svg>
+  )
+}
+
+function FileIconLanding() {
+  return (
+    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+    </svg>
+  )
+}
+
+function MentionIconLanding() {
+  return (
+    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
     </svg>
   )
 }

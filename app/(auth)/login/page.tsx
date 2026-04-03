@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { ThreadlyLogo } from '@/components/ui/threadly-logo'
 
 const ERROR_MESSAGES: Record<string, string> = {
   account_deactivated: 'Your account has been deactivated. Contact your admin.',
@@ -52,12 +53,7 @@ function LoginContent() {
 
         <div className="relative flex flex-col justify-between p-14 w-full z-10">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-[0_0_25px_rgba(139,92,246,0.4)]">
-              <span className="text-white font-extrabold text-lg">T</span>
-            </div>
-            <span className="text-white font-extrabold text-xl tracking-tight">Threadly</span>
-          </div>
+          <ThreadlyLogo size="lg" />
 
           {/* Hero content */}
           <div>
@@ -108,14 +104,8 @@ function LoginContent() {
 
         <div className={`w-full max-w-[380px] transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}>
           {/* Mobile logo */}
-          <div className="flex items-center gap-3 mb-14 xl:hidden">
-            <div className="w-11 h-11 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-[0_0_25px_rgba(139,92,246,0.3)]">
-              <span className="text-white font-extrabold text-lg">T</span>
-            </div>
-            <div>
-              <span className="text-white font-extrabold text-lg block">Threadly</span>
-              <span className="text-white/25 text-[10px] font-medium">Team Communication</span>
-            </div>
+          <div className="mb-14 xl:hidden">
+            <ThreadlyLogo size="lg" />
           </div>
 
           {/* Heading */}

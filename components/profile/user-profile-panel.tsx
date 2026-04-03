@@ -19,9 +19,11 @@ interface UserProfile {
 interface UserProfilePanelProps {
   userId: string
   onClose: () => void
+  isOnline?: boolean
+  lastSeen?: string
 }
 
-export function UserProfilePanel({ userId, onClose }: UserProfilePanelProps) {
+export function UserProfilePanel({ userId, onClose, isOnline: userOnline, lastSeen }: UserProfilePanelProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [visible, setVisible] = useState(false)
@@ -127,9 +129,9 @@ export function UserProfilePanel({ userId, onClose }: UserProfilePanelProps) {
               {/* Name & Status */}
               <h2 className="text-xl font-extrabold text-white tracking-tight">{profile.full_name}</h2>
               <div className="flex items-center gap-2 mt-1.5 mb-6">
-                <span className="flex items-center gap-1.5 text-[12px] text-emerald-400 font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Online
+                <span className={`flex items-center gap-1.5 text-[12px] font-semibold ${userOnline ? 'text-emerald-400' : 'text-white/30'}`}>
+                  <span className={`w-2 h-2 rounded-full ${userOnline ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+                  {userOnline ? 'Online' : (lastSeen || 'Offline')}
                 </span>
               </div>
 

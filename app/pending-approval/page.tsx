@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { ThreadlyLogo } from '@/components/ui/threadly-logo'
 
 export default function PendingApprovalPage() {
   const [status, setStatus] = useState<'pending' | 'rejected' | 'approved' | 'loading'>('loading')
@@ -61,12 +62,7 @@ export default function PendingApprovalPage() {
         <div className="absolute bottom-[-10%] left-[-10%] w-[300px] h-[300px] bg-indigo-400/15 rounded-full blur-[60px]" />
 
         <div className="relative flex flex-col justify-between p-12 w-full">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
-              <span className="text-white font-extrabold text-lg">T</span>
-            </div>
-            <span className="text-white font-extrabold text-lg">Threadly</span>
-          </div>
+          <ThreadlyLogo size="md" />
 
           <div>
             <h1 className="text-4xl font-extrabold text-white leading-tight mb-4">
@@ -85,11 +81,8 @@ export default function PendingApprovalPage() {
       <div className="flex-1 bg-[#0a0612] flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-[400px]">
           {/* Mobile logo */}
-          <div className="flex items-center gap-3 mb-12 xl:hidden">
-            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <span className="text-white font-extrabold text-lg">T</span>
-            </div>
-            <span className="text-white font-extrabold text-lg">Threadly</span>
+          <div className="mb-12 xl:hidden">
+            <ThreadlyLogo size="lg" />
           </div>
 
           {/* Loading */}

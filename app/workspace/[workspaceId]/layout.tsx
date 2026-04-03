@@ -8,6 +8,7 @@ import { useChannels } from '@/hooks/use-channels'
 import { useDirectMessages } from '@/hooks/use-direct-messages'
 import { useUnread } from '@/hooks/use-unread'
 import { useCall, CallType } from '@/hooks/use-call'
+import { usePresence } from '@/hooks/use-presence'
 import { Sidebar } from '@/components/layout/sidebar'
 import { NotificationToast } from '@/components/ui/notification-toast'
 import { createClient } from '@/lib/supabase/client'
@@ -19,6 +20,14 @@ const ThreadsPanel = lazy(() => import('@/components/notifications/threads-panel
 const ProfileModal = lazy(() => import('@/components/profile/profile-modal').then(m => ({ default: m.ProfileModal })))
 const CallModal = lazy(() => import('@/components/call/call-modal').then(m => ({ default: m.CallModal })))
 const IncomingCall = lazy(() => import('@/components/call/incoming-call').then(m => ({ default: m.IncomingCall })))
+
+// Presence context so child pages can check online/last seen
+interface PresenceContextType {
+  isOnline: (uid: string) => boolean
+  getLastSeen: (uid: string) => string
+}
+const PresenceContext = createContext<PresenceContextType>({ isOnline: () => false, getLastSeen: () => 'Offline' })
+export const usePresenceContext = () => useContext(PresenceContext)
 
 // Call context so child pages can trigger calls
 interface CallContextType {
@@ -54,8 +63,9 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
   const { user, profile, loading: authLoading, signOut } = useAuth()
   const { workspace, members, myRole, loading: wsLoading, reload } = useWorkspace(workspaceId)
-  const { channels, createChannel, deleteChannel } = useChannels(workspaceId)
+  const { channels, createChannel, deleteChannel } = useChannels(workspaceId, user?.id)
   const { conversations, startDm } = useDirectMessages(workspaceId, user?.id)
+  const { isOnline, getLastSeen } = usePresence(workspaceId, user?.id)
 
   const displayNameForCall = profile?.full_name || user?.user_metadata?.full_name || 'User'
   const displayAvatarForCall = profile?.avatar_url || user?.user_metadata?.avatar_url || null
@@ -268,7 +278,8 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
         threadCount={threadCount}
         onProfileClick={() => setShowProfile(true)}
         onMembersClick={() => { router.push(`/workspace/${workspaceId}/members`); setSidebarOpen(false) }}
-        onHomeClick={() => { router.push(`/workspace/${workspaceId}`); setSidebarOpen(false) }}
+        onHomeClick={() => { router.push(`/workspace/${workspaceId}/channel`); setSidebarOpen(false) }}
+        activePage={pathname.endsWith('/channel') ? 'home' : pathname.includes('/members') ? 'members' : undefined}
         onDeleteChannel={isAdmin ? async (channelId: string) => {
           await deleteChannel(channelId)
           // If deleted channel is active, navigate to first available channel
@@ -292,10 +303,12 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
           id: m.user_id,
           full_name: m.profiles?.full_name || 'Unknown',
           avatar_url: m.profiles?.avatar_url || null,
+          online: isOnline(m.user_id),
         }))}
         currentUserId={user.id}
       />
       </div>
+      <PresenceContext.Provider value={{ isOnline, getLastSeen }}>
       <CallContext.Provider value={{ startCall: (remoteUserId, remoteName, remoteAvatar, type) => {
         // Save active DM channel for call log
         callDmChannelRef.current = activeDmId || null
@@ -303,6 +316,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
       } }}>
         {children}
       </CallContext.Provider>
+      </PresenceContext.Provider>
 
       {/* Calling UI — lazy loaded */}
       <Suspense fallback={null}>

@@ -99,7 +99,7 @@ export function ForwardModal({ messageContent, senderName, workspaceId, currentU
   return (
     <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 transition-all duration-200 ${visible ? 'bg-black/40 backdrop-blur-sm' : 'bg-transparent'}`}>
       <div className="absolute inset-0" onClick={handleClose} />
-      <div className={`relative bg-[#2a2540] rounded-2xl w-full max-w-[380px] shadow-2xl border border-white/[0.1] overflow-hidden transition-all duration-200 ${visible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+      <div className={`relative bg-[#2a2540] rounded-2xl w-[calc(100%-2rem)] max-w-[380px] shadow-2xl border border-white/[0.1] overflow-hidden transition-all duration-200 ${visible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
         {/* Header */}
         <div className="px-5 py-4 border-b border-white/[0.06]">
           <div className="flex items-center justify-between mb-3">

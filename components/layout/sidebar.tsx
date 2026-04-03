@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { ThreadlyLogo } from '@/components/ui/threadly-logo'
 
 
 interface Channel {
@@ -23,6 +24,7 @@ interface MemberItem {
   id: string
   full_name: string
   avatar_url: string | null
+  online?: boolean
 }
 
 interface SidebarProps {
@@ -46,6 +48,7 @@ interface SidebarProps {
   onProfileClick?: () => void
   onMembersClick?: () => void
   onHomeClick?: () => void
+  activePage?: string
   onDeleteChannel?: (channelId: string) => void
   memberCount?: number
   dmConversations?: DmItem[]
@@ -56,7 +59,6 @@ interface SidebarProps {
 }
 
 export function Sidebar({
-  workspaceName,
   channels,
   activeChannelId,
   activeDmId,
@@ -75,6 +77,7 @@ export function Sidebar({
   onProfileClick,
   onMembersClick,
   onHomeClick,
+  activePage,
   onDeleteChannel,
   memberCount,
   dmConversations,
@@ -108,17 +111,10 @@ export function Sidebar({
 
       {/* Header */}
       <div className="relative p-5 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-accent rounded-xl flex items-center justify-center shadow-glow">
-            <span className="text-white font-extrabold text-base">T</span>
-          </div>
-          <div className="flex-1">
-            <h1 className="font-bold text-[15px] text-white tracking-tight">{workspaceName}</h1>
-            <p className="text-[11px] text-white/40 font-medium">
-              {memberCount ? `${memberCount} members` : 'Team workspace'}
-            </p>
-          </div>
-        </div>
+        <ThreadlyLogo size="sm" showText={true} />
+        <p className="text-[10px] text-white/30 font-medium mt-1 pl-[68px]">
+          {memberCount ? `${memberCount} members` : 'Team workspace'}
+        </p>
       </div>
 
       {/* Search */}
@@ -144,11 +140,11 @@ export function Sidebar({
 
       {/* Nav Items */}
       <nav className="relative px-3 pb-2 flex flex-col gap-0.5">
-        <NavItem icon={<HomeIcon />} label="Home" onClick={onHomeClick} />
-        <NavItem icon={<PeopleIcon />} label={`Members${memberCount ? ` (${memberCount})` : ''}`} onClick={onMembersClick} />
+        <NavItem icon={<HomeIcon />} label="Home" onClick={onHomeClick} active={activePage === 'home'} />
+        <NavItem icon={<PeopleIcon />} label={`Members${memberCount ? ` (${memberCount})` : ''}`} onClick={onMembersClick} active={activePage === 'members'} />
         <button
           onClick={onNotificationsClick}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-white/60 hover:bg-white/[0.06] hover:text-white/80 transition-all duration-150 relative"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 relative text-white/60 hover:bg-white/[0.06] hover:text-white/80"
         >
           <NotifIcon />
           <span>Notifications</span>
@@ -236,7 +232,7 @@ export function Sidebar({
                 onClick={() => onChannelSelect(channel.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] transition-all duration-150 ${
                   activeChannelId === channel.id
-                    ? 'bg-white/[0.12] text-white font-semibold shadow-sm backdrop-blur-sm'
+                    ? 'bg-gradient-accent text-white font-semibold shadow-glow'
                     : 'text-white/60 hover:bg-white/[0.06] hover:text-white/80 font-medium'
                 }`}
               >
@@ -309,25 +305,30 @@ export function Sidebar({
                         }}
                         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/[0.06] transition-colors"
                       >
-                        <Avatar name={m.full_name} src={m.avatar_url} size="sm" />
+                        <Avatar name={m.full_name} src={m.avatar_url} size="sm" online={m.online} />
                         <span className="text-[13px] font-medium text-white/70 truncate">{m.full_name}</span>
+                        {m.online && <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />}
                       </button>
                     ))}
                 </div>
               </div>
             )}
             <div className="flex flex-col gap-0.5">
-              {dmConversations?.map((dm) => (
+              {dmConversations
+                ?.filter((dm, i) => i < 7 || dm.id === activeDmId || (dm.unread_count && dm.unread_count > 0))
+                .map((dm) => {
+                const dmMember = members?.find(m => m.full_name === dm.name)
+                return (
                 <button
                   key={dm.id}
                   onClick={() => onDmSelect?.(dm.id)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] transition-all duration-150 ${
                     activeDmId === dm.id
-                      ? 'bg-white/[0.12] text-white font-semibold shadow-sm backdrop-blur-sm'
+                      ? 'bg-gradient-accent text-white font-semibold shadow-glow'
                       : 'text-white/60 hover:bg-white/[0.06] hover:text-white/80 font-medium'
                   }`}
                 >
-                  <Avatar name={dm.name} src={dm.avatar} size="sm" />
+                  <Avatar name={dm.name} src={dm.avatar} size="sm" online={dmMember?.online} />
                   <div className="flex-1 text-left min-w-0">
                     <span className="truncate block">{dm.name}</span>
                     {dm.lastMessage && (
@@ -340,11 +341,11 @@ export function Sidebar({
                     <Badge count={dm.unread_count} variant={activeDmId === dm.id ? 'muted' : 'primary'} />
                   ) : null}
                 </button>
-              ))}
+              )})}
               {onStartDm && members
                 .filter((m) => m.id !== currentUserId)
                 .filter((m) => !dmConversations?.some((dm) => dm.name === m.full_name))
-                .slice(0, Math.max(0, 8 - (dmConversations?.length || 0)))
+                .slice(0, Math.max(0, 7 - Math.min(dmConversations?.length || 0, 7)))
                 .map((m) => (
                   <button
                     key={m.id}
@@ -392,9 +393,9 @@ export function Sidebar({
   )
 }
 
-function NavItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
+function NavItem({ icon, label, onClick, active }: { icon: React.ReactNode; label: string; onClick?: () => void; active?: boolean }) {
   return (
-    <button onClick={onClick} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-white/60 hover:bg-white/[0.06] hover:text-white/80 transition-all duration-150">
+    <button onClick={onClick} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 ${active ? 'bg-gradient-accent text-white shadow-glow' : 'text-white/60 hover:bg-white/[0.06] hover:text-white/80'}`}>
       {icon}
       <span>{label}</span>
     </button>

@@ -4,6 +4,24 @@ import React, { useState } from 'react'
 
 // Simple markdown-like renderer — handles bold, italic, strikethrough, code, links
 export function MessageContent({ content }: { content: string }) {
+  // Check if forwarded message
+  const forwardMatch = content.match(/^↪️ Forwarded from (.+?):\n([\s\S]+)$/)
+  if (forwardMatch) {
+    const senderName = forwardMatch[1]
+    const msgContent = forwardMatch[2]
+    return (
+      <div className="mt-1 border-l-[3px] border-violet-500/50 bg-violet-500/5 rounded-r-xl px-4 py-3 max-w-[400px]">
+        <div className="flex items-center gap-2 mb-1.5">
+          <svg className="w-3.5 h-3.5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+          </svg>
+          <span className="text-[11px] text-violet-400 font-semibold">Forwarded from {senderName}</span>
+        </div>
+        <span className="whitespace-pre-wrap break-words leading-relaxed text-white/70">{parseContent(msgContent)}</span>
+      </div>
+    )
+  }
+
   const elements = parseContent(content)
   return <span className="whitespace-pre-wrap break-words leading-relaxed">{elements}</span>
 }

@@ -79,8 +79,8 @@ export function Avatar({ src, name, size = 'md', online }: AvatarProps) {
       )}
       {online !== undefined && (
         <span
-          className={`absolute -bottom-0.5 -right-0.5 ${dotSizeClasses[size]} rounded-full border-2 border-white ${
-            online ? 'bg-emerald-400' : 'bg-gray-300'
+          className={`absolute -bottom-0.5 -right-0.5 ${dotSizeClasses[size]} rounded-full border-2 border-[#1e1a2b] ${
+            online ? 'bg-emerald-400' : 'bg-gray-500'
           }`}
         />
       )}

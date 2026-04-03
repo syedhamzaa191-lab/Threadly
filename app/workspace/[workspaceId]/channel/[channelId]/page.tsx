@@ -12,8 +12,11 @@ import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { ThreadPanel } from '@/components/chat/thread-panel'
 import { UserProfilePanel } from '@/components/profile/user-profile-panel'
+import { AddMemberModal } from '@/components/chat/add-member-modal'
+import { ChannelMembersPanel } from '@/components/chat/channel-members-panel'
 import { ForwardModal } from '@/components/chat/forward-modal'
 import { ReactionGroup } from '@/components/chat/reaction-display'
+import { usePresenceContext } from '../../layout'
 
 export default function ChannelPage() {
   const params = useParams()
@@ -23,8 +26,9 @@ export default function ChannelPage() {
   const workspaceId = params.workspaceId as string
 
   const { user } = useAuth()
-  const { channels } = useChannels(workspaceId)
+  const { channels } = useChannels(workspaceId, user?.id)
   const { members, myRole } = useWorkspace(workspaceId)
+  const { isOnline, getLastSeen } = usePresenceContext()
   const { messages, loading, sendMessage, deleteMessage, toggleReaction } = useMessages(channelId)
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null)
 
@@ -36,6 +40,18 @@ export default function ChannelPage() {
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
   const [forwardMsg, setForwardMsg] = useState<{ content: string; senderName: string } | null>(null)
   const [showSearch, setShowSearch] = useState(false)
+  const [showAddMember, setShowAddMember] = useState(false)
+  const [showChannelMembers, setShowChannelMembers] = useState(false)
+  const [channelMemberCount, setChannelMemberCount] = useState(0)
+
+  // Fetch channel member count
+  useEffect(() => {
+    if (!channelId) return
+    fetch(`/api/channels/members?channel_id=${channelId}`)
+      .then(r => r.json())
+      .then(data => setChannelMemberCount(data.members?.length || 0))
+      .catch(() => {})
+  }, [channelId, showChannelMembers])
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -130,13 +146,15 @@ export default function ChannelPage() {
 
   return (
     <>
-      <main className="flex-1 flex flex-col min-w-0 bg-[#1e1a2b] page-enter overflow-x-hidden">
+      <main className="flex-1 flex flex-col min-w-0 chat-bg page-enter overflow-x-hidden">
         <ChatHeader
           channelName={channel?.name || 'channel'}
-          memberCount={members.length}
+          memberCount={channelMemberCount}
           isAdmin={myRole === 'owner' || myRole === 'admin'}
           showSearch={showSearch}
           onSearchToggle={() => setShowSearch(!showSearch)}
+          onManageMembers={() => setShowChannelMembers(true)}
+          onViewMembers={() => { setShowChannelMembers(true); setThreadMessageId(null); setProfileUserId(null) }}
         />
         {/* Search bar */}
         {showSearch && (
@@ -218,6 +236,26 @@ export default function ChannelPage() {
         />
       </main>
 
+      {showChannelMembers && channel && (
+        <ChannelMembersPanel
+          channelId={channelId}
+          channelName={channel.name}
+          workspaceId={workspaceId}
+          isAdmin={myRole === 'owner' || myRole === 'admin'}
+          onClose={() => setShowChannelMembers(false)}
+          onUserClick={(uid) => { setShowChannelMembers(false); setProfileUserId(uid) }}
+        />
+      )}
+
+      {showAddMember && channel && (
+        <AddMemberModal
+          channelId={channelId}
+          channelName={channel.name}
+          workspaceId={workspaceId}
+          onClose={() => setShowAddMember(false)}
+        />
+      )}
+
       {forwardMsg && user && (
         <ForwardModal
           messageContent={forwardMsg.content}
@@ -230,7 +268,7 @@ export default function ChannelPage() {
       )}
 
       {profileUserId && (
-        <UserProfilePanel userId={profileUserId} onClose={() => setProfileUserId(null)} />
+        <UserProfilePanel userId={profileUserId} onClose={() => setProfileUserId(null)} isOnline={isOnline(profileUserId)} lastSeen={getLastSeen(profileUserId)} />
       )}
 
       {!profileUserId && threadMessageId && formattedParent && (
